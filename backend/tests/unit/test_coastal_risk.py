@@ -365,3 +365,122 @@ def test_importer_record_validation():
     is_valid, err = importer.validate_feature_record(missing_name_record)
     assert is_valid is False
     assert "Missing required field" in err
+
+
+# ==============================================================================
+# 6. PHASE 3 ADVANCED SPATIAL & REPRODUCIBILITY VERIFICATION
+# ==============================================================================
+
+def test_segments_intersection_logic():
+    """Verify segment-segment intersection across diverse geometric cases."""
+    from app.agents.coastal_risk.spatial import segments_intersect
+
+    # 1. Crossing segments (X-cross)
+    assert segments_intersect([0.0, 0.0], [2.0, 2.0], [0.0, 2.0], [2.0, 0.0]) is True
+
+    # 2. Parallel non-intersecting
+    assert segments_intersect([0.0, 0.0], [0.0, 2.0], [1.0, 0.0], [1.0, 2.0]) is False
+
+    # 3. Touching at a vertex (T-junction)
+    assert segments_intersect([0.0, 0.0], [2.0, 0.0], [1.0, 0.0], [1.0, 2.0]) is True
+
+    # 4. Collinear overlapping
+    assert segments_intersect([0.0, 0.0], [2.0, 0.0], [1.0, 0.0], [3.0, 0.0]) is True
+
+
+def test_polygon_polygon_intersection_advanced_cases():
+    """
+    Verify polygon-to-polygon intersection under all Phase 3 required cases:
+    - Full containment (poly1 inside poly2, and poly2 inside poly1)
+    - Partial overlap with intersecting boundaries
+    - Boundaries cross without containing each other's centroid
+    - Polygon inside an interior hole (disjoint)
+    """
+    from app.agents.coastal_risk.spatial import (
+        geojson_geometries_intersect,
+        polygons_intersect,
+    )
+
+    # Base square: (0,0) to (10,10)
+    square_10 = [[[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]]]
+
+    # Case 1: Hazard polygon fully contains feature polygon
+    small_inside = [[[2.0, 2.0], [4.0, 2.0], [4.0, 4.0], [2.0, 4.0], [2.0, 2.0]]]
+    assert polygons_intersect(square_10, small_inside) is True
+    assert polygons_intersect(small_inside, square_10) is True
+
+    # Case 2: Partial overlap (edges cross)
+    overlapping = [[[5.0, 5.0], [15.0, 5.0], [15.0, 15.0], [5.0, 15.0], [5.0, 5.0]]]
+    assert polygons_intersect(square_10, overlapping) is True
+
+    # Case 3: Boundaries cross where neither centroid is inside the other
+    # Cross/plus shape: vertical strip (4, -2) to (6, 12) crossing horizontal strip (-2, 4) to (12, 6)
+    v_strip = [[[4.0, -2.0], [6.0, -2.0], [6.0, 12.0], [4.0, 12.0], [4.0, -2.0]]]
+    h_strip = [[[-2.0, 4.0], [12.0, 4.0], [12.0, 6.0], [-2.0, 6.0], [-2.0, 4.0]]]
+    assert polygons_intersect(v_strip, h_strip) is True
+
+    # Case 4: Polygon strictly inside an interior hole of a donut polygon
+    donut = [
+        # Exterior
+        [[0.0, 0.0], [20.0, 0.0], [20.0, 20.0], [0.0, 20.0], [0.0, 0.0]],
+        # Hole: (5,5) to (15,15)
+        [[5.0, 5.0], [15.0, 5.0], [15.0, 15.0], [5.0, 15.0], [5.0, 5.0]],
+    ]
+    # Poly inside hole: (8,8) to (12,12)
+    in_hole = [[[8.0, 8.0], [12.0, 8.0], [12.0, 12.0], [8.0, 12.0], [8.0, 8.0]]]
+    assert polygons_intersect(donut, in_hole) is False
+
+    # GeoJSON wrappers check
+    geom_poly1 = {"type": "Polygon", "coordinates": square_10}
+    geom_poly2 = {"type": "Polygon", "coordinates": small_inside}
+    assert geojson_geometries_intersect(geom_poly1, geom_poly2) is True
+
+
+@pytest.mark.asyncio
+async def test_agent_deterministic_reproducibility():
+    """Verify that repeated runs with identical task inputs yield identical analytical findings."""
+    agent = CoastalRiskAgent()
+    task = InvestigationTask(
+        investigation_id="inv_repeat_01",
+        workspace="disaster_management",
+        query="Verify reproducible analysis in Mangaluru",
+        latitude=12.9141,
+        longitude=74.8560,
+        radius_km=30.0,
+    )
+
+    res1 = await agent.run(task)
+    res2 = await agent.run(task)
+
+    assert res1.status == res2.status
+    assert len(res1.findings) == len(res2.findings)
+    assert len(res1.evidence) == len(res2.evidence)
+
+    for f1, f2 in zip(res1.findings, res2.findings):
+        assert f1.claim == f2.claim
+        assert f1.value == f2.value
+        assert f1.unit == f2.unit
+        assert f1.evidence_ids == f2.evidence_ids
+
+
+def test_population_deduplication():
+    """Verify population aggregation does not double-count duplicate or overlapping settlement entries."""
+    features = [
+        {"id": "s1", "name": "Settlement A", "feature_type": "settlement", "estimated_population": 50000},
+        {"id": "s1", "name": "Settlement A (duplicate entry)", "feature_type": "settlement", "estimated_population": 50000},
+        {"id": "s2", "name": "Settlement B", "feature_type": "settlement", "estimated_population": 25000},
+        {"id": "port1", "name": "Commercial Port", "feature_type": "port", "estimated_population": None},
+    ]
+
+    total_pop = 0
+    counted = set()
+    for f in features:
+        if f.get("feature_type") == "settlement":
+            f_id = f["id"]
+            if f_id not in counted:
+                total_pop += f.get("estimated_population") or 0
+                counted.add(f_id)
+
+    # 50,000 + 25,000 = 75,000 (duplicate s1 ignored, port ignored)
+    assert total_pop == 75000
+

@@ -207,3 +207,148 @@ def geometry_centroid(geometry: Dict[str, Any]) -> Tuple[float, float]:
         return (coords[1], coords[0])
     else:
         raise ValueError(f"Cannot compute centroid for geometry type {geom_type}")
+
+
+def _cross_product(a: Sequence[float], b: Sequence[float], c: Sequence[float]) -> float:
+    """2D cross product of vectors (b - a) and (c - a)."""
+    return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
+
+def segments_intersect(
+    p1: Sequence[float], p2: Sequence[float], p3: Sequence[float], p4: Sequence[float]
+) -> bool:
+    """
+    Determine if 2D line segment p1-p2 intersects line segment p3-p4.
+    Points are [lon, lat] pairs.
+    """
+    d1 = _cross_product(p3, p4, p1)
+    d2 = _cross_product(p3, p4, p2)
+    d3 = _cross_product(p1, p2, p3)
+    d4 = _cross_product(p1, p2, p4)
+
+    # General straddling condition
+    if ((d1 > 1e-12 and d2 < -1e-12) or (d1 < -1e-12 and d2 > 1e-12)) and (
+        (d3 > 1e-12 and d4 < -1e-12) or (d3 < -1e-12 and d4 > 1e-12)
+    ):
+        return True
+
+    # Boundary and collinear on-segment condition
+    def on_segment(p, a, b):
+        return (
+            min(a[0], b[0]) - 1e-12 <= p[0] <= max(a[0], b[0]) + 1e-12
+            and min(a[1], b[1]) - 1e-12 <= p[1] <= max(a[1], b[1]) + 1e-12
+        )
+
+    if abs(d1) <= 1e-12 and on_segment(p1, p3, p4):
+        return True
+    if abs(d2) <= 1e-12 and on_segment(p2, p3, p4):
+        return True
+    if abs(d3) <= 1e-12 and on_segment(p3, p1, p2):
+        return True
+    if abs(d4) <= 1e-12 and on_segment(p4, p1, p2):
+        return True
+
+    return False
+
+
+def rings_edges_cross(
+    ring1: Sequence[Sequence[float]], ring2: Sequence[Sequence[float]]
+) -> bool:
+    """Check if any edge of ring1 intersects any edge of ring2."""
+    n1 = len(ring1)
+    n2 = len(ring2)
+    for i in range(n1 - 1):
+        for j in range(n2 - 1):
+            if segments_intersect(ring1[i], ring1[i + 1], ring2[j], ring2[j + 1]):
+                return True
+    return False
+
+
+def polygons_intersect(
+    poly1_coords: List[List[List[float]]], poly2_coords: List[List[List[float]]]
+) -> bool:
+    """
+    Deterministic 2D intersection of two GeoJSON Polygons.
+    Supports:
+    - Full containment (poly1 inside poly2 or poly2 inside poly1)
+    - Partial overlap with intersecting boundaries
+    - Interior holes (returns False if one polygon is strictly contained inside a hole of the other)
+    """
+    if not poly1_coords or not poly2_coords:
+        return False
+
+    ext1 = poly1_coords[0]
+    ext2 = poly2_coords[0]
+
+    # 1. Do boundary edges cross?
+    if rings_edges_cross(ext1, ext2):
+        return True
+
+    # 2. Is any vertex of poly1 strictly inside poly2?
+    for pt in ext1:
+        if point_in_polygon(pt[1], pt[0], poly2_coords):
+            return True
+
+    # 3. Is any vertex of poly2 strictly inside poly1?
+    for pt in ext2:
+        if point_in_polygon(pt[1], pt[0], poly1_coords):
+            return True
+
+    return False
+
+
+def geojson_geometries_intersect(geom1: Dict[str, Any], geom2: Dict[str, Any]) -> bool:
+    """
+    Determine if two GeoJSON geometries intersect.
+    Supports Point, Polygon, and MultiPolygon combinations.
+    """
+    if not isinstance(geom1, dict) or not isinstance(geom2, dict):
+        raise ValueError("Both geometries must be GeoJSON dictionaries")
+
+    type1 = geom1.get("type")
+    type2 = geom2.get("type")
+    coords1 = geom1.get("coordinates")
+    coords2 = geom2.get("coordinates")
+
+    if not type1 or not type2 or coords1 is None or coords2 is None:
+        raise ValueError("Invalid GeoJSON: missing 'type' or 'coordinates'")
+
+    # Point vs Point
+    if type1 == "Point" and type2 == "Point":
+        return abs(coords1[0] - coords2[0]) < 1e-6 and abs(coords1[1] - coords2[1]) < 1e-6
+
+    # Point vs Polygon
+    if type1 == "Point" and type2 == "Polygon":
+        return point_in_polygon(coords1[1], coords1[0], coords2)
+
+    if type1 == "Polygon" and type2 == "Point":
+        return point_in_polygon(coords2[1], coords2[0], coords1)
+
+    # Point vs MultiPolygon
+    if type1 == "Point" and type2 == "MultiPolygon":
+        return any(point_in_polygon(coords1[1], coords1[0], poly) for poly in coords2)
+
+    if type1 == "MultiPolygon" and type2 == "Point":
+        return any(point_in_polygon(coords2[1], coords2[0], poly) for poly in coords1)
+
+    # Polygon vs Polygon
+    if type1 == "Polygon" and type2 == "Polygon":
+        return polygons_intersect(coords1, coords2)
+
+    # MultiPolygon vs Polygon
+    if type1 == "MultiPolygon" and type2 == "Polygon":
+        return any(polygons_intersect(poly, coords2) for poly in coords1)
+
+    if type1 == "Polygon" and type2 == "MultiPolygon":
+        return any(polygons_intersect(coords1, poly) for poly in coords2)
+
+    # MultiPolygon vs MultiPolygon
+    if type1 == "MultiPolygon" and type2 == "MultiPolygon":
+        for poly1 in coords1:
+            for poly2 in coords2:
+                if polygons_intersect(poly1, poly2):
+                    return True
+        return False
+
+    raise ValueError(f"Unsupported geometry intersection combination: {type1} and {type2}")
+

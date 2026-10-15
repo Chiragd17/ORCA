@@ -26,6 +26,7 @@ from app.agents.coastal_risk.reference_data import (
 )
 from app.agents.coastal_risk.spatial import (
     geometry_centroid,
+    geojson_geometries_intersect,
     haversine_distance_km,
     parse_hazard_bbox,
     point_in_bbox,
@@ -144,8 +145,11 @@ class CoastalRiskAgent(BaseAgent):
             is_intersecting = False
             if hazard_geom:
                 try:
-                    if point_in_geojson_geometry(f_lat, f_lon, hazard_geom):
-                        is_intersecting = True
+                    feat_geom = feat.get("geojson_geometry")
+                    if feat_geom and isinstance(feat_geom, dict):
+                        is_intersecting = geojson_geometries_intersect(feat_geom, hazard_geom)
+                    else:
+                        is_intersecting = point_in_geojson_geometry(f_lat, f_lon, hazard_geom)
                 except Exception as e:
                     errors.append(f"Geometry intersection test error for feature '{feat.get('name')}': {e}")
 
