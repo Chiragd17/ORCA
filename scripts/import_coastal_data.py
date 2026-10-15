@@ -37,13 +37,18 @@ from app.agents.coastal_risk.reference_data import (
     DATA_SOURCE_METADATA,
     VERIFIED_COASTAL_FEATURES,
 )
+from app.agents.coastal_risk.live_provider import OpenMeteoMarineClient
 from app.agents.coastal_risk.spatial import validate_coordinates
 from app.core.config import settings
-# pyrefly: ignore [missing-import]
-from app.models import CoastalFeature, DataSource, EvidenceRecordModel
-# pyrefly: ignore [missing-import]
+from app.models import (
+    CoastalFeature,
+    DataSource,
+    EvidenceRecordModel,
+    HazardEvent,
+    HazardTrack,
+    MarineObservation,
+)
 from sqlalchemy import select
-# pyrefly: ignore [missing-import]
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
@@ -268,8 +273,112 @@ class CoastalDataImporter:
                         )
                         session.add(ev_record)
 
+                # 4. Upsert verified historical hazards & tracks
+                print("[*] Persisting verified historical hazard records (IMD / INCOIS)...")
+                imd_ds_stmt = select(DataSource).where(DataSource.id == "src_imd_incois_hazard_register")
+                imd_ds_res = await session.execute(imd_ds_stmt)
+                ds_imd = imd_ds_res.scalar_one_or_none()
+                if not ds_imd:
+                    ds_imd = DataSource(
+                        id="src_imd_incois_hazard_register",
+                        name="IMD & INCOIS Historical Cyclone and Hazard Register",
+                        provider="India Meteorological Department (IMD) & INCOIS",
+                        url="https://mausam.imd.gov.in",
+                        license="Open Government Data License (OGDL) India",
+                        update_frequency="event-driven",
+                    )
+                    session.add(ds_imd)
+                    await session.flush()
+
+                for h_rec in VERIFIED_HISTORICAL_HAZARDS:
+                    h_stmt = select(HazardEvent).where(HazardEvent.id == h_rec.event_id)
+                    h_res = await session.execute(h_stmt)
+                    existing_h = h_res.scalar_one_or_none()
+                    if not existing_h:
+                        new_h = HazardEvent(
+                            id=h_rec.event_id,
+                            external_id=h_rec.event_id,
+                            name=h_rec.name,
+                            hazard_type=h_rec.hazard_type,
+                            basin="North Indian Ocean (Arabian Sea)",
+                            status="historical",
+                            started_at=h_rec.start_time,
+                            ended_at=h_rec.end_time,
+                            source_id=ds_imd.id,
+                        )
+                        session.add(new_h)
+                        await session.flush()
+
+                        track_id = f"trk_{h_rec.event_id}_peak"
+                        new_trk = HazardTrack(
+                            id=track_id,
+                            hazard_event_id=h_rec.event_id,
+                            timestamp=h_rec.peak_time,
+                            latitude=h_rec.latitude,
+                            longitude=h_rec.longitude,
+                            wind_speed_kts=round(h_rec.peak_wind_gust_kmh * 0.539957, 1),
+                            is_forecast=False,
+                        )
+                        session.add(new_trk)
+
+                    ev_h_id = f"evi_hist_{h_rec.event_id}"
+                    ev_h_stmt = select(EvidenceRecordModel).where(EvidenceRecordModel.id == ev_h_id)
+                    if not (await session.execute(ev_h_stmt)).scalar_one_or_none():
+                        session.add(EvidenceRecordModel(
+                            id=ev_h_id,
+                            source_id=ds_imd.id,
+                            source_identifier=h_rec.official_reference,
+                            source_url=h_rec.provenance_url,
+                            observation_time=h_rec.peak_time,
+                            retrieval_time=datetime.now(timezone.utc),
+                            latitude=h_rec.latitude,
+                            longitude=h_rec.longitude,
+                            data_type="historical_hazard_observation",
+                            raw_payload=h_rec.to_dict(),
+                            hash=h_rec.hash,
+                        ))
+
+                # 5. Ingest and persist real live marine observations from Open-Meteo
+                print("[*] Fetching and persisting live marine observation (Open-Meteo)...")
+                try:
+                    marine_client = OpenMeteoMarineClient()
+                    live_obs, live_err = await marine_client.fetch_current_conditions(12.9141, 74.8560)
+                    if live_obs and live_obs.wave_height is not None:
+                        om_ds_stmt = select(DataSource).where(DataSource.id == "src_open_meteo_marine")
+                        ds_om = (await session.execute(om_ds_stmt)).scalar_one_or_none()
+                        if not ds_om:
+                            ds_om = DataSource(
+                                id="src_open_meteo_marine",
+                                name="Open-Meteo Global Marine Weather Service",
+                                provider="Open-Meteo",
+                                url="https://marine-api.open-meteo.com/v1/marine",
+                                license="CC-BY 4.0 / Open Data",
+                                update_frequency="hourly",
+                            )
+                            session.add(ds_om)
+                            await session.flush()
+
+                        obs_id = f"obs_live_{int(live_obs.observation_time.timestamp())}"
+                        obs_stmt = select(MarineObservation).where(MarineObservation.id == obs_id)
+                        if not (await session.execute(obs_stmt)).scalar_one_or_none():
+                            session.add(MarineObservation(
+                                id=obs_id,
+                                source_id=ds_om.id,
+                                latitude=live_obs.latitude,
+                                longitude=live_obs.longitude,
+                                observation_time=live_obs.observation_time,
+                                retrieval_time=live_obs.retrieval_time,
+                                variable="significant_wave_height",
+                                value=live_obs.wave_height,
+                                unit=live_obs.units.get("wave_height", "m"),
+                                is_forecast=False,
+                            ))
+                        print(f"[+] Persisted live wave observation: {live_obs.wave_height:.2f} m at Mangaluru.")
+                except Exception as m_err:
+                    print(f"[-] Live marine observation ingest warning: {m_err}")
+
                 await session.commit()
-                print("[+] Changes committed successfully to PostgreSQL database.")
+                print("[+] All coastal, historical hazard, and live marine records committed to PostgreSQL.")
             except Exception as e:
                 await session.rollback()
                 print(f"[!] Transaction failed and was rolled back: {e}")
