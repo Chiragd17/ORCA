@@ -4,7 +4,6 @@ ORCA Database Verification Script
 Checks connection to PostgreSQL, verifies that required tables exist, and prints row counts.
 """
 
-import sys
 import asyncio
 from sqlalchemy import text
 from app.db.session import engine

@@ -5,7 +5,6 @@ Imports historical tropical cyclone tracks (NOAA IBTrACS) and GDACS alert feeds.
 All imports must be idempotent.
 """
 
-import sys
 import asyncio
 
 async def import_hazard_data():

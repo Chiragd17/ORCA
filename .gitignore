@@ -61,6 +61,7 @@ coverage.xml
 
 # Node / Frontend
 node_modules/
+*.tsbuildinfo
 .npm/
 npm-debug.log*
 yarn-debug.log*

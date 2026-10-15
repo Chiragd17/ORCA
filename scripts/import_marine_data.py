@@ -5,7 +5,6 @@ Imports marine observations (SST, wave height, currents) from Open-Meteo or ERDD
 All imports must be idempotent.
 """
 
-import sys
 import asyncio
 
 async def import_marine_data():

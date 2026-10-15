@@ -5,7 +5,6 @@ Imports coastal boundaries, settlements, and population grids (WorldPop / OSM Ov
 All imports must be idempotent.
 """
 
-import sys
 import asyncio
 
 async def import_coastal_data():
