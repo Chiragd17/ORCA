@@ -1,8 +1,18 @@
 import asyncio
+import os
+import sys
 from logging.config import fileConfig
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+# pyrefly: ignore [missing-import]
 from sqlalchemy import pool
+# pyrefly: ignore [missing-import]
 from sqlalchemy.engine import Connection
+# pyrefly: ignore [missing-import]
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context

@@ -1,118 +1,99 @@
-import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import { Anchor, ShieldAlert, Waves, Compass, Activity, ShieldCheck, RefreshCw, Database, Server } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Activity, RefreshCw, Database, Server, Menu } from 'lucide-react';
 import { apiClient } from '../../lib/api-client';
 
-const workspaces = [
-  { id: 'fisherman', label: 'Fisherman', path: '/fisherman', icon: Anchor },
-  { id: 'marine-monitoring', label: 'Marine Monitoring', path: '/marine-monitoring', icon: Waves },
-  { id: 'protected-areas', label: 'Protected Areas', path: '/protected-areas', icon: ShieldCheck },
-  { id: 'coastal-authority', label: 'Coastal Authority', path: '/coastal-authority', icon: Compass },
-  { id: 'disaster-management', label: 'Disaster Management', path: '/disaster-management', icon: ShieldAlert },
-];
+interface NavbarProps {
+  onToggleSidebar?: () => void;
+}
 
-export const Navbar: React.FC = () => {
+export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const [health, setHealth] = useState<{ status: string; database: string; version: string } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
-  const fetchHealth = async () => {
+  const fetchHealth = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiClient.checkHealth();
       setHealth(data);
-      setError(null);
       setLastChecked(new Date());
-    } catch (err: any) {
+    } catch {
       setHealth(null);
-      setError('Backend unreachable');
       setLastChecked(new Date());
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchHealth();
-    const interval = setInterval(fetchHealth, 15000);
+    const interval = setInterval(fetchHealth, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchHealth]);
 
   return (
-    <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <Activity className="w-6 h-6 text-white" />
+    <header className="h-[60px] flex items-center justify-between px-4 bg-white border-b border-[#d8e4f0] sticky top-0 z-50">
+      {/* Left: Logo + Menu toggle */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onToggleSidebar}
+          className="p-1.5 rounded-lg hover:bg-[#f0f5fa] text-[#4a6fa5] transition-colors lg:hidden"
+          aria-label="Toggle sidebar"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#0891b2] to-[#2563eb] flex items-center justify-center shadow-sm">
+            <Activity className="w-5 h-5 text-white" />
           </div>
           <div>
-            <span className="font-bold text-lg tracking-wider bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+            <span className="font-bold text-[15px] tracking-wide text-[#0a1628]">
               ORCA
             </span>
-            <span className="block text-[10px] text-slate-400 font-mono tracking-tight uppercase">
+            <span className="block text-[9px] text-[#4a6fa5] font-medium tracking-tight">
               Marine & Coastal Intelligence
             </span>
           </div>
         </div>
+      </div>
 
-        {/* Five Workspaces Nav */}
-        <nav className="flex items-center gap-1">
-          {workspaces.map((ws) => {
-            const Icon = ws.icon;
-            return (
-              <NavLink
-                key={ws.id}
-                to={ws.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                  }`
-                }
-              >
-                <Icon className="w-4 h-4" />
-                <span>{ws.label}</span>
-              </NavLink>
-            );
-          })}
-        </nav>
-
-        {/* Real Backend & Database Health Indicator */}
-        <div className="flex items-center gap-2 text-xs font-mono">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800">
-            {/* Backend Status */}
-            <div className="flex items-center gap-1.5" title={error ? error : `Backend API v${health?.version || '0.1.0'} active`}>
-              <Server className="w-3.5 h-3.5 text-slate-400" />
-              <span className={`w-2 h-2 rounded-full ${health ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-              <span className={health ? 'text-slate-300' : 'text-rose-400'}>
-                {health ? 'API LIVE' : 'API OFFLINE'}
-              </span>
-            </div>
-
-            <span className="text-slate-700">|</span>
-
-            {/* Database Status */}
-            <div className="flex items-center gap-1.5" title={`Database status: ${health?.database || 'disconnected'}`}>
-              <Database className="w-3.5 h-3.5 text-slate-400" />
-              <span className={`w-2 h-2 rounded-full ${health?.database === 'connected' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-              <span className={health?.database === 'connected' ? 'text-slate-300' : 'text-amber-400'}>
-                {health?.database === 'connected' ? 'DB LIVE' : 'DB NO-CONN'}
-              </span>
-            </div>
-
-            {/* Manual refresh / last checked */}
-            <button
-              onClick={fetchHealth}
-              disabled={loading}
-              className="p-1 hover:text-cyan-400 text-slate-500 transition-colors"
-              title={lastChecked ? `Checked ${lastChecked.toLocaleTimeString()}` : 'Check connection'}
-            >
-              <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
-            </button>
+      {/* Right: Status indicators */}
+      <div className="flex items-center gap-3">
+        {/* API Status */}
+        <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-[#f7fafc] border border-[#d8e4f0] text-xs font-medium">
+          <div className="flex items-center gap-1.5" title={health ? `API v${health.version}` : 'API offline'}>
+            <span className={`w-2 h-2 rounded-full ${health ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+            <Server className="w-3.5 h-3.5 text-[#4a6fa5]" />
+            <span className={health ? 'text-emerald-700' : 'text-rose-600'}>
+              {health ? 'API LIVE' : 'API OFFLINE'}
+            </span>
           </div>
+
+          <span className="text-[#d8e4f0]">|</span>
+
+          <div className="flex items-center gap-1.5" title={`DB: ${health?.database || 'unknown'}`}>
+            <span className={`w-2 h-2 rounded-full ${health?.database === 'connected' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            <Database className="w-3.5 h-3.5 text-[#4a6fa5]" />
+            <span className={health?.database === 'connected' ? 'text-emerald-700' : 'text-amber-600'}>
+              {health?.database === 'connected' ? 'DB LIVE' : 'DB NO-CONN'}
+            </span>
+          </div>
+
+          <button
+            onClick={fetchHealth}
+            disabled={loading}
+            className="p-1 hover:text-[#2563eb] text-[#4a6fa5] transition-colors"
+            title={lastChecked ? `Checked ${lastChecked.toLocaleTimeString()}` : 'Check connection'}
+            aria-label="Refresh health status"
+          >
+            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin text-[#2563eb]' : ''}`} />
+          </button>
+        </div>
+
+        {/* User avatar */}
+        <div className="w-8 h-8 rounded-full bg-[#1a3258] flex items-center justify-center text-white text-xs font-bold cursor-pointer">
+          K
         </div>
       </div>
     </header>

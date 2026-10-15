@@ -3,7 +3,8 @@ export type WorkspaceType =
   | 'marine-monitoring'
   | 'protected-areas'
   | 'coastal-authority'
-  | 'disaster-management';
+  | 'disaster-management'
+  | 'coastal-risk';
 
 export type VerificationState =
   | 'verified'
@@ -25,6 +26,7 @@ export interface EvidenceRecord {
   raw_data?: Record<string, any>;
   units?: Record<string, string>;
   dataset_metadata?: Record<string, any>;
+  hash?: string;
 }
 
 export interface Finding {
@@ -59,7 +61,7 @@ export interface VerificationSummary {
 export interface Investigation {
   investigation_id: string;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
-  workspace: WorkspaceType;
+  workspace: string;
   query: string;
   findings: Finding[];
   limitations: string[];
@@ -67,11 +69,56 @@ export interface Investigation {
 }
 
 export interface InvestigationCreateRequest {
-  workspace: WorkspaceType;
+  workspace: string;
   query: string;
   latitude?: number;
   longitude?: number;
   radius_km?: number;
   start_time?: string;
   end_time?: string;
+}
+
+// Coastal risk specific types
+export interface CoastalFeature {
+  id: string;
+  name: string;
+  feature_type: 'settlement' | 'port' | 'hospital' | 'mangrove' | 'protected_area';
+  latitude: number;
+  longitude: number;
+  estimated_population?: number | null;
+  description?: string;
+  census_year?: number | null;
+  source_identifier?: string;
+  geojson_geometry?: {
+    type: string;
+    coordinates: any;
+  };
+}
+
+export interface LiveDataSource {
+  name: string;
+  category: string;
+  status: 'connected' | 'stale' | 'failed' | 'not_configured' | 'unknown';
+  lastUpdate?: string;
+  details?: string;
+}
+
+export interface RiskSummary {
+  affectedSettlements: number;
+  estimatedPopulation: number;
+  portFacilities: number;
+  protectedAreas: number;
+  healthcareFacilities: number;
+  totalFeatures: number;
+  riskLevel: 'HIGH' | 'MODERATE' | 'LOW' | 'UNKNOWN';
+  riskDescription: string;
+}
+
+export interface CoastalFinding {
+  name: string;
+  type: string;
+  status: 'intersecting' | 'near_risk' | 'safe' | 'unknown';
+  population?: number | null;
+  distanceKm?: number;
+  evidenceId?: string;
 }

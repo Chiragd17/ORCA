@@ -441,13 +441,23 @@ class CoastalRiskAgent(BaseAgent):
                 live_provider_failed = True
 
         # 7. Historical Hazard Precedents Integration (IMD / INCOIS Verified Records)
-        matched_precedents = match_historical_precedents(task.query or "", ref_lat, ref_lon)
-        for prec in matched_precedents[:2]:
-            prec_ev = build_historical_evidence_record(prec)
-            evidence.append(prec_ev)
-            prec_finding = build_historical_finding(task.investigation_id, finding_seq, prec)
-            findings.append(prec_finding)
-            finding_seq += 1
+        matched_precedents: List[HistoricalHazardRecord] = []
+        is_historical = (
+            "historical" in (task.query or "").lower()
+            or "cyclone" in (task.query or "").lower()
+            or "tauktae" in (task.query or "").lower()
+            or "ockhi" in (task.query or "").lower()
+            or task.parameters.get("scenario") == "historical"
+            or live_provider_failed
+        )
+        if is_historical:
+            matched_precedents = match_historical_precedents(task.query or "", ref_lat, ref_lon)
+            for prec in matched_precedents[:2]:
+                prec_ev = build_historical_evidence_record(prec)
+                evidence.append(prec_ev)
+                prec_finding = build_historical_finding(task.investigation_id, finding_seq, prec)
+                findings.append(prec_finding)
+                finding_seq += 1
 
         is_partial = db_offline or live_provider_failed or bool(errors)
         status = AgentStatus.PARTIAL if is_partial else AgentStatus.COMPLETED

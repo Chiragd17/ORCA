@@ -5,6 +5,7 @@ import { MarineMonitoringWorkspace } from '../features/marine-monitoring';
 import { ProtectedAreasWorkspace } from '../features/protected-areas';
 import { CoastalAuthorityWorkspace } from '../features/coastal-authority';
 import { DisasterManagementWorkspace } from '../features/disaster-management';
+import { CoastalRiskWorkspace } from '../features/coastal-risk';
 
 export const router = createBrowserRouter([
   {
@@ -13,7 +14,11 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="/fisherman" replace />,
+        element: <Navigate to="/coastal-risk" replace />,
+      },
+      {
+        path: 'coastal-risk',
+        element: <CoastalRiskWorkspace />,
       },
       {
         path: 'fisherman',

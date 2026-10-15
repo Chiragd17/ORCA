@@ -18,6 +18,21 @@ router = APIRouter()
 _INVESTIGATION_CACHE: Dict[str, OrchestrationResult] = {}
 
 
+@router.get("", response_model=List[InvestigationCreateResponse], tags=["Investigations"])
+async def list_investigations():
+    """List all cached or executed investigations."""
+    return [
+        InvestigationCreateResponse(
+            investigation_id=k,
+            status=v.status,
+            workspace=v.workspace,
+            created_at=datetime.now(timezone.utc),
+            planned_agents=InvestigationPlanner.plan(v.workspace, v.query),
+        )
+        for k, v in _INVESTIGATION_CACHE.items()
+    ]
+
+
 @router.post("", response_model=InvestigationCreateResponse, status_code=status.HTTP_201_CREATED, tags=["Investigations"])
 async def create_investigation(payload: InvestigationCreateRequest):
     """Create and immediately execute an investigation through the Orchestrator."""
