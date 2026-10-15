@@ -29,14 +29,20 @@ if backend_path not in sys.path:
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
+# pyrefly: ignore [missing-import]
 from app.agents.coastal_risk.reference_data import (
     DATA_SOURCE_METADATA,
     VERIFIED_COASTAL_FEATURES,
 )
+# pyrefly: ignore [missing-import]
 from app.agents.coastal_risk.spatial import validate_coordinates
+# pyrefly: ignore [missing-import]
 from app.core.config import settings
+# pyrefly: ignore [missing-import]
 from app.models import CoastalFeature, DataSource, EvidenceRecordModel
+# pyrefly: ignore [missing-import]
 from sqlalchemy import select
+# pyrefly: ignore [missing-import]
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
