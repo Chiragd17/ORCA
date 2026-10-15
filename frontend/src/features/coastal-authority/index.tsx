@@ -52,6 +52,9 @@ export const CoastalAuthorityWorkspace: React.FC = () => {
 
       <InvestigationPanel
         workspace="coastal-authority"
+        defaultLatitude={12.9141}
+        defaultLongitude={74.8560}
+        defaultRadiusKm={35.0}
         defaultPrompt="Identify coastal settlements within 15km of the Karnataka shoreline and estimate potential population exposure using available datasets."
         suggestedQuestions={[
           "Identify critical infrastructure and ports intersecting high wave-energy zones.",

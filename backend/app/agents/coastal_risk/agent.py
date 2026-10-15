@@ -403,8 +403,47 @@ class CoastalRiskAgent(BaseAgent):
                     hazard_center = {"latitude": task.latitude, "longitude": task.longitude}
                     if task.radius_km is not None:
                         impact_radius_km = float(task.radius_km)
+                    else:
+                        impact_radius_km = 30.0
                 except ValueError as ve:
                     return None, None, None, None, f"Invalid top-level task coordinates: {ve}"
+            else:
+                # Resolve spatial scope from query keywords if referring to coastal features or study area
+                q_lower = (task.query or "").lower()
+                if "mangaluru" in q_lower or "mangalore" in q_lower:
+                    hazard_center = {"latitude": 12.9141, "longitude": 74.8560}
+                    impact_radius_km = 30.0
+                elif "udupi" in q_lower:
+                    hazard_center = {"latitude": 13.3409, "longitude": 74.7421}
+                    impact_radius_km = 30.0
+                elif "malpe" in q_lower:
+                    hazard_center = {"latitude": 13.3512, "longitude": 74.7003}
+                    impact_radius_km = 15.0
+                elif "ullal" in q_lower:
+                    hazard_center = {"latitude": 12.8055, "longitude": 74.8564}
+                    impact_radius_km = 15.0
+                elif "surathkal" in q_lower:
+                    hazard_center = {"latitude": 13.0068, "longitude": 74.7938}
+                    impact_radius_km = 15.0
+                elif any(
+                    k in q_lower
+                    for k in [
+                        "infrastructure",
+                        "port",
+                        "settlement",
+                        "population",
+                        "coastal",
+                        "shoreline",
+                        "karnataka",
+                        "taluk",
+                        "exposure",
+                        "high wave",
+                        "projected track",
+                    ]
+                ):
+                    # Default spatial screening to the Karnataka coastal study area bounding box
+                    # (min_lon=74.5, min_lat=12.5, max_lon=75.5, max_lat=14.0)
+                    hazard_bbox = (74.5, 12.5, 75.5, 14.0)
 
         return hazard_geom, hazard_bbox, hazard_center, impact_radius_km, None
 

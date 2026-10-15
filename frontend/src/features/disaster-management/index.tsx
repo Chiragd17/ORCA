@@ -52,6 +52,9 @@ export const DisasterManagementWorkspace: React.FC = () => {
 
       <InvestigationPanel
         workspace="disaster-management"
+        defaultLatitude={12.9141}
+        defaultLongitude={74.8560}
+        defaultRadiusKm={35.0}
         defaultPrompt="Investigate the latest available cyclone information relevant to the Arabian Sea, identify potentially exposed coastal areas, and disclose unresolved uncertainties."
         suggestedQuestions={[
           "Replay historical storm tracks in the Arabian Sea from the IBTrACS record.",

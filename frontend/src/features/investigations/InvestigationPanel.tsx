@@ -7,12 +7,18 @@ interface Props {
   workspace: WorkspaceType;
   defaultPrompt?: string;
   suggestedQuestions?: string[];
+  defaultLatitude?: number;
+  defaultLongitude?: number;
+  defaultRadiusKm?: number;
 }
 
 export const InvestigationPanel: React.FC<Props> = ({
   workspace,
   defaultPrompt = '',
   suggestedQuestions = [],
+  defaultLatitude,
+  defaultLongitude,
+  defaultRadiusKm,
 }) => {
   const [query, setQuery] = useState(defaultPrompt);
   const [loading, setLoading] = useState(false);
@@ -33,6 +39,9 @@ export const InvestigationPanel: React.FC<Props> = ({
       const resp = await apiClient.createInvestigation({
         workspace,
         query: q,
+        latitude: defaultLatitude,
+        longitude: defaultLongitude,
+        radius_km: defaultRadiusKm,
       });
 
       // Poll or fetch investigation details
