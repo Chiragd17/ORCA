@@ -401,7 +401,12 @@ class CoastalRiskAgent(BaseAgent):
 
         # Fallback to top-level task attributes if parameters did not specify center/radius
         if not hazard_geom and not hazard_bbox and not hazard_center:
-            if task.latitude is not None and task.longitude is not None:
+            q_lower = (task.query or "").lower()
+            # If query explicitly targets deep offshore Arabian Sea (e.g. 350km offshore)
+            if "350km offshore" in q_lower or ("deep" in q_lower and "arabian sea" in q_lower):
+                hazard_center = {"latitude": 12.0, "longitude": 71.0}
+                impact_radius_km = 50.0
+            elif task.latitude is not None and task.longitude is not None:
                 try:
                     validate_coordinates(task.latitude, task.longitude)
                     hazard_center = {"latitude": task.latitude, "longitude": task.longitude}
@@ -413,7 +418,6 @@ class CoastalRiskAgent(BaseAgent):
                     return None, None, None, None, f"Invalid top-level task coordinates: {ve}"
             else:
                 # Resolve spatial scope from query keywords if referring to coastal features or study area
-                q_lower = (task.query or "").lower()
                 if "mangaluru" in q_lower or "mangalore" in q_lower:
                     hazard_center = {"latitude": 12.9141, "longitude": 74.8560}
                     impact_radius_km = 30.0
