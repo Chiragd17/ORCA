@@ -190,7 +190,10 @@ export const CoastalMap: React.FC<Props> = ({ evidence, findings: _findings, loa
     }
 
     if (hasPoints) {
-      mapRef.current!.fitBounds(bounds, { padding: 50, maxZoom: 12 });
+      mapRef.current!.fitBounds(bounds, {
+        padding: { top: 75, bottom: 40, left: 40, right: 40 },
+        maxZoom: 12,
+      });
     }
   }, [evidence, mapReady, layers]);
 
