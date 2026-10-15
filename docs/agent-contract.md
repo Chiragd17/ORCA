@@ -67,3 +67,41 @@ class BaseAgent(ABC):
 ```
 
 All 4 agents (`ocean_research`, `marine_hazard`, `coastal_risk`, `evidence_verification`) must inherit from `BaseAgent`.
+
+---
+
+## 3. Hazard-to-Coastal Interface Contract (Person 2 -> Person 3)
+
+When Person 2 (Marine Hazard Agent) passes hazard geometries to Person 3 (Coastal Impact & Risk Agent), the handoff happens through `InvestigationTask.parameters`:
+
+```python
+task.parameters = {
+    # 1. GeoJSON geometry representing cyclone footprint, storm surge boundary, or wind cone
+    "hazard_geometry": {
+        "type": "Polygon",
+        "coordinates": [[[74.0, 12.0], [75.0, 12.0], [75.0, 14.0], [74.0, 14.0], [74.0, 12.0]]]
+    },
+    # 2. Or Bounding Box format: [min_lat, min_lon, max_lat, max_lon]
+    "hazard_bbox": [12.0, 74.0, 14.0, 75.0],
+    # 3. Or Point + Impact Buffer Radius
+    "hazard_center": {"latitude": 12.87, "longitude": 74.88},
+    "impact_radius_km": 50.0,
+    # 4. Reference Hazard Event ID
+    "hazard_event_id": "ibtracs_2024_01",
+    "evidence_ids": ["evi_haz_001"]
+}
+```
+
+### Geospatial Standards
+- **CRS:** Strictly WGS84 (`EPSG:4326`). Coordinates are ordered `[longitude, latitude]` in GeoJSON arrays.
+- **Distances:** All distances expressed in kilometers (`km`).
+- **Time semantics:** Observation timestamp vs. forecast valid time must be explicitly specified in metadata.
+
+---
+
+## 4. Evidence Conventions
+
+1. **Source Identifiers:** Must follow `<provider>:<category>:<unique_key>`, e.g., `open-meteo:hourly:wave_height:2026-10-15T06:00`.
+2. **Evidence Record IDs:** Stable deterministic string prefix, e.g., `evi_sst_...`, `evi_haz_...`, `evi_pop_...`.
+3. **Data Types:** Categorized explicitly as `sst`, `wave_height`, `cyclone_track`, `coastal_settlement`, `population_count`.
+4. **Calculations:** Derived results (distance, intersection, population sum) must retain formulas/methods in finding's `claim` or `uncertainty` notes.
