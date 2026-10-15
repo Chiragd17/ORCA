@@ -11,8 +11,21 @@ Tests verify:
 
 import math
 import pytest
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+import httpx
 from app.agents.base import AgentResult, AgentStatus, BaseAgent, Finding, InvestigationTask
 from app.agents.coastal_risk.agent import CoastalRiskAgent
+from app.agents.coastal_risk.historical import (
+    VERIFIED_HISTORICAL_HAZARDS,
+    HistoricalHazardRecord,
+    get_historical_hazard_records,
+    match_historical_precedents,
+)
+from app.agents.coastal_risk.live_provider import (
+    LiveMarineObservation,
+    OpenMeteoMarineClient,
+)
 from app.agents.coastal_risk.spatial import (
     EARTH_RADIUS_KM,
     haversine_distance_km,
@@ -23,6 +36,7 @@ from app.agents.coastal_risk.spatial import (
     validate_coordinates,
 )
 from app.evidence.schemas import EvidenceRecord, VerificationState
+from app.evidence.verification import verify_evidence_linkages
 from scripts.import_coastal_data import CoastalDataImporter
 
 
@@ -483,4 +497,337 @@ def test_population_deduplication():
 
     # 50,000 + 25,000 = 75,000 (duplicate s1 ignored, port ignored)
     assert total_pop == 75000
+
+
+# ==============================================================================
+# 7. HISTORICAL HAZARD DATA PIPELINE & PRECEDENTS
+# ==============================================================================
+
+def test_historical_hazard_records_provenance_and_validation():
+    """Verify all verified historical hazards conform to IMD/INCOIS provenance contracts."""
+    hazards = get_historical_hazard_records()
+    assert len(hazards) >= 4
+
+    for h in hazards:
+        assert isinstance(h, HistoricalHazardRecord)
+        assert h.event_id.startswith("hist_hazard_")
+        assert len(h.name) > 0
+        assert h.agency in [
+            "India Meteorological Department (IMD) & INCOIS",
+            "Indian National Centre for Ocean Information Services (INCOIS)",
+        ]
+        assert h.start_time <= h.peak_time <= h.end_time
+        assert h.peak_wave_height_m > 0
+        assert h.peak_wind_gust_kmh >= 0
+        validate_coordinates(h.latitude, h.longitude)
+        assert len(h.affected_sectors) > 0
+        assert len(h.observed_impacts) > 0
+        assert h.crs == "EPSG:4326"
+        assert h.hash is not None and len(h.hash) == 64
+
+
+def test_historical_precedent_matching():
+    """Verify matching historical storm precedents from query text and coordinates."""
+    # 1. Direct name match: Cyclone Tauktae
+    matches_tauktae = match_historical_precedents("Review damage precedents from Cyclone Tauktae")
+    assert len(matches_tauktae) >= 1
+    assert matches_tauktae[0].event_id == "hist_hazard_tauktae_2021"
+    assert matches_tauktae[0].peak_wave_height_m == 5.8
+
+    # 2. Direct name match: Cyclone Ockhi
+    matches_ockhi = match_historical_precedents("Vessel grounding risk similar to Cyclone Ockhi")
+    assert len(matches_ockhi) >= 1
+    assert matches_ockhi[0].event_id == "hist_hazard_ockhi_2017"
+
+    # 3. Direct match: Kallakkadal swell surge
+    matches_kallakkadal = match_historical_precedents("Check Kallakkadal swell surge history")
+    assert len(matches_kallakkadal) >= 1
+    assert matches_kallakkadal[0].event_id == "hist_hazard_kallakkadal_2024"
+
+    # 4. Keyword query for historical precedents near Mangaluru
+    matches_general = match_historical_precedents("Show past cyclone precedents along coastal Karnataka", lat=12.91, lon=74.85)
+    assert len(matches_general) >= 1
+
+
+def test_importer_validates_historical_hazard_records():
+    """Verify CoastalDataImporter validates historical hazard records and catches anomalies."""
+    importer = CoastalDataImporter(dry_run=True)
+
+    # Valid record
+    valid_rec = VERIFIED_HISTORICAL_HAZARDS[0]
+    ok, err = importer.validate_historical_record(valid_rec)
+    assert ok is True
+    assert err is None
+
+    # Temporal inconsistency (start after end)
+    from dataclasses import replace
+    bad_time_rec = replace(valid_rec, start_time=datetime(2025, 1, 1, tzinfo=timezone.utc), end_time=datetime(2024, 1, 1, tzinfo=timezone.utc))
+    ok, err = importer.validate_historical_record(bad_time_rec)
+    assert ok is False
+    assert "start_time must be before end_time" in err
+
+    # Negative wave height
+    bad_wave_rec = replace(valid_rec, peak_wave_height_m=-1.5)
+    ok, err = importer.validate_historical_record(bad_wave_rec)
+    assert ok is False
+    assert "peak_wave_height_m cannot be negative" in err
+
+
+# ==============================================================================
+# 8. LIVE MARINE PROVIDER ADAPTER (OPEN-METEO) TESTS
+# ==============================================================================
+
+@pytest.mark.asyncio
+async def test_live_marine_provider_success_normalization():
+    """Verify OpenMeteoMarineClient parses and normalizes mock successful HTTP 200 payload."""
+    mock_payload = {
+        "latitude": 12.91,
+        "longitude": 74.85,
+        "generationtime_ms": 0.12,
+        "utc_offset_seconds": 0,
+        "timezone": "UTC",
+        "current_units": {
+            "time": "iso8601",
+            "wave_height": "m",
+            "wave_direction": "°",
+            "wave_period": "s",
+            "wind_wave_height": "m",
+            "swell_wave_height": "m",
+        },
+        "current": {
+            "time": "2026-10-15T12:00",
+            "wave_height": 2.45,
+            "wave_direction": 240.0,
+            "wave_period": 9.2,
+            "wind_wave_height": 1.10,
+            "swell_wave_height": 2.15,
+        },
+    }
+
+    client = OpenMeteoMarineClient(base_url="https://mock-marine.test/marine")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = mock_payload
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = mock_response
+        obs, err = await client.fetch_current_conditions(12.9141, 74.8560)
+
+    assert err is None
+    assert obs is not None
+    assert obs.wave_height == 2.45
+    assert obs.swell_wave_height == 2.15
+    assert obs.wave_period == 9.2
+    assert obs.is_high_wave_hazard(threshold_m=2.0) is True
+    assert obs.is_high_wave_hazard(threshold_m=3.0) is False
+    assert obs.units["wave_height"] == "m"
+    assert len(obs.hash) == 64
+    assert obs.source_name == "Open-Meteo Marine API"
+
+
+@pytest.mark.asyncio
+async def test_live_marine_provider_handles_connect_timeout():
+    """Verify live client handles connect timeout gracefully without mock data substitution."""
+    client = OpenMeteoMarineClient(timeout_seconds=0.1)
+
+    with patch("httpx.AsyncClient.get", side_effect=httpx.ConnectTimeout("Connection timed out")):
+        obs, err = await client.fetch_current_conditions(12.91, 74.85)
+
+    assert obs is None
+    assert err is not None
+    assert "Connection timeout" in err
+
+
+@pytest.mark.asyncio
+async def test_live_marine_provider_handles_http_500_server_error():
+    """Verify live client handles 500 server error honestly."""
+    client = OpenMeteoMarineClient()
+
+    mock_response = MagicMock()
+    mock_response.status_code = 500
+    mock_response.text = "Internal Server Error in Marine Simulation Model"
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = mock_response
+        obs, err = await client.fetch_current_conditions(12.91, 74.85)
+
+    assert obs is None
+    assert err is not None
+    assert "HTTP 500" in err
+
+
+@pytest.mark.asyncio
+async def test_live_marine_provider_handles_malformed_response():
+    """Verify malformed provider response is caught and reported."""
+    client = OpenMeteoMarineClient()
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"error": True, "reason": "No marine grid for inland point"}
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = mock_response
+        obs, err = await client.fetch_current_conditions(12.91, 74.85)
+
+    assert obs is None
+    assert err is not None
+    assert "missing 'current' observations" in err
+
+
+@pytest.mark.asyncio
+async def test_live_marine_preserves_zero_vs_missing():
+    """Verify zero wave height is preserved as 0.0, while missing/null is None."""
+    client = OpenMeteoMarineClient()
+
+    payload_zero = {
+        "current": {"time": "2026-10-15T10:00", "wave_height": 0.0, "wave_period": 0.0}
+    }
+    obs_zero, err = client._parse_payload(12.91, 74.85, payload_zero)
+    assert err is None
+    assert obs_zero.wave_height == 0.0
+
+    payload_null = {
+        "current": {"time": "2026-10-15T10:00", "wave_height": None, "wave_period": None}
+    }
+    obs_null, err = client._parse_payload(12.91, 74.85, payload_null)
+    assert err is None
+    assert obs_null.wave_height is None
+
+
+# ==============================================================================
+# 9. END-TO-END PIPELINE & EVIDENCE VERIFICATION
+# ==============================================================================
+
+@pytest.mark.asyncio
+async def test_end_to_end_coastal_agent_with_live_and_historical_evidence():
+    """
+    Verify complete end-to-end coastal risk pipeline:
+    - Ingests mock live high-wave observation
+    - Matches historical Cyclone Tauktae precedent
+    - Evaluates spatial settlement & port exposure
+    - Validates all generated evidence linkages with EvidenceVerification
+    """
+    mock_client = OpenMeteoMarineClient()
+    mock_obs = LiveMarineObservation(
+        latitude=12.9141,
+        longitude=74.8560,
+        wave_height=2.35,
+        wave_period=9.5,
+        wave_direction=250.0,
+        swell_wave_height=1.90,
+        wind_wave_height=1.20,
+        observation_time=datetime(2026, 10, 15, 12, 0, tzinfo=timezone.utc),
+        retrieval_time=datetime(2026, 10, 15, 12, 5, tzinfo=timezone.utc),
+        units={"wave_height": "m", "wave_period": "s"},
+        raw_payload={"wave_height": 2.35},
+        hash="a" * 64,
+        source_identifier="test:marine:mgl",
+    )
+    mock_client.fetch_current_conditions = AsyncMock(return_value=(mock_obs, None))
+
+    agent = CoastalRiskAgent(marine_client=mock_client)
+
+    task = InvestigationTask(
+        investigation_id="inv_e2e_full_01",
+        workspace="disaster_management",
+        query="Assess coastal risk and precedents similar to Cyclone Tauktae in Mangaluru",
+        latitude=12.9141,
+        longitude=74.8560,
+        radius_km=30.0,
+    )
+
+    result = await agent.run(task)
+
+    assert result.status in [AgentStatus.COMPLETED, AgentStatus.PARTIAL]
+    assert len(result.findings) >= 3
+    assert len(result.evidence) >= 3
+
+    # 1. Check spatial findings
+    pop_f = next((f for f in result.findings if f.unit == "people"), None)
+    assert pop_f is not None
+    assert pop_f.value >= 499487.0
+
+    # 2. Check live marine observation finding
+    live_f = next((f for f in result.findings if "Live ocean observation" in f.claim), None)
+    assert live_f is not None
+    assert live_f.value == 2.35
+    assert live_f.unit == "m"
+    assert "Exceeds coastal high-wave hazard screening" in live_f.claim
+    assert len(live_f.evidence_ids) == 1
+
+    # 3. Check historical precedent finding
+    hist_f = next((f for f in result.findings if "Historical precedent" in f.claim), None)
+    assert hist_f is not None
+    assert "Tauktae" in hist_f.claim
+    assert hist_f.value == 5.8
+    assert len(hist_f.evidence_ids) == 1
+
+    # 4. Verify evidence linkage integrity with verification function
+    findings_dicts = [f.model_dump() for f in result.findings]
+    v_summary = verify_evidence_linkages(task.investigation_id, findings_dicts, result.evidence)
+
+    # Every finding referencing evidence must be verified
+    for detail in v_summary.details:
+        if detail.supporting_evidence_ids:
+            assert detail.state == VerificationState.VERIFIED
+            assert len(detail.missing_evidence_ids) == 0
+
+
+@pytest.mark.asyncio
+async def test_coastal_agent_graceful_historical_only_when_live_fails():
+    """Verify that when live marine provider fails, historical analysis succeeds with transparent limitation."""
+    mock_client = OpenMeteoMarineClient()
+    mock_client.fetch_current_conditions = AsyncMock(return_value=(None, "DNS resolution failed"))
+
+    agent = CoastalRiskAgent(marine_client=mock_client)
+
+    task = InvestigationTask(
+        investigation_id="inv_fallback_01",
+        workspace="disaster_management",
+        query="Assess coastal exposure around Ullal",
+        latitude=12.8055,
+        longitude=74.8564,
+        radius_km=15.0,
+    )
+
+    result = await agent.run(task)
+
+    # Status should be PARTIAL due to live provider failure
+    assert result.status == AgentStatus.PARTIAL
+
+    # Spatial exposure findings still completely succeeded
+    pop_f = next((f for f in result.findings if f.unit == "people"), None)
+    assert pop_f is not None
+    assert pop_f.value >= 53856.0  # Ullal population
+
+    # Transparent disclosure in limitations
+    assert any("Live marine provider query unavailable" in lim for lim in result.limitations)
+    assert any("DNS resolution failed" in lim for lim in result.limitations)
+
+
+# ==============================================================================
+# 10. REAL PROVIDER OPT-IN INTEGRATION TEST (NETWORK-AWARE)
+# ==============================================================================
+
+@pytest.mark.asyncio
+async def test_live_marine_provider_real_api_call():
+    """
+    Opt-in network integration test querying official Open-Meteo Marine API.
+    Gracefully skips if network is unavailable or external endpoint times out.
+    """
+    client = OpenMeteoMarineClient(timeout_seconds=5.0)
+    obs, err = await client.fetch_current_conditions(12.9141, 74.8560)
+
+    if err is not None:
+        pytest.skip(f"Live marine endpoint not reachable in current test environment: {err}")
+
+    assert obs is not None
+    assert obs.latitude == 12.9141
+    assert obs.longitude == 74.8560
+    assert obs.wave_height is not None
+    assert obs.wave_height >= 0.0
+    assert obs.observation_time is not None
+    assert len(obs.hash) == 64
+
 

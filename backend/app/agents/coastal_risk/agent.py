@@ -3,8 +3,12 @@ ORCA Coastal Impact & Risk Agent (Person 3 Implementation).
 
 Analyzes spatial relationships between hazard footprints (cyclone cones, surge polygons,
 impact buffers) and verified coastal settlements, critical infrastructure, and populations.
-Computes deterministic intersections, geodesic distances, and population exposure sums.
-Produces evidence-backed findings adhering to the shared ORCA agent contract.
+Combines:
+- Historical verified coastal reference features and Census 2011 population records.
+- Historical hazard observations and meteorological precedents (IMD / INCOIS).
+- Real live marine observations (significant wave height, swell, period) from Open-Meteo Marine API.
+- Deterministic geodesic distance and polygon-to-polygon intersection calculations.
+- Evidence-backed findings adhering to shared ORCA agent contracts.
 """
 
 import hashlib
@@ -19,6 +23,16 @@ from app.agents.base import (
     BaseAgent,
     Finding,
     InvestigationTask,
+)
+from app.agents.coastal_risk.historical import (
+    HistoricalHazardRecord,
+    build_historical_evidence_record,
+    build_historical_finding,
+    match_historical_precedents,
+)
+from app.agents.coastal_risk.live_provider import (
+    LiveMarineObservation,
+    OpenMeteoMarineClient,
 )
 from app.agents.coastal_risk.reference_data import (
     DATA_SOURCE_METADATA,
@@ -45,6 +59,8 @@ class CoastalRiskAgent(BaseAgent):
     - Bounded coastal feature queries (settlements, ports, hospitals, mangroves).
     - Deterministic spatial intersections with GeoJSON hazard polygons, bounding boxes, or buffer radii.
     - Geodesic distance calculations using the Haversine formula (WGS84).
+    - Real-time marine observation ingestion via Open-Meteo Marine API.
+    - Historical cyclone/surge precedent integration with traceable scientific provenance.
     - Conservative, evidence-backed population exposure summation without double-counting.
     - Transparent documentation of uncertainties, data vintages, and physical limitations.
     """
@@ -53,12 +69,18 @@ class CoastalRiskAgent(BaseAgent):
     name: str = "Coastal Impact & Risk Agent"
     description: str = (
         "Analyzes how hazard footprints intersect coastal settlements, "
-        "critical infrastructure, and estimated exposed populations."
+        "critical infrastructure, and estimated exposed populations, "
+        "combining verified historical reference data with real-time marine observations."
     )
+
+    def __init__(self, marine_client: Optional[OpenMeteoMarineClient] = None):
+        super().__init__()
+        self.marine_client = marine_client or OpenMeteoMarineClient()
 
     async def run(self, task: InvestigationTask) -> AgentResult:
         """
-        Execute deterministic coastal risk analysis for the given investigation task.
+        Execute deterministic coastal risk analysis combining historical context,
+        spatial exposure screening, and live marine observations.
         """
         findings: List[Finding] = []
         evidence: List[EvidenceRecord] = []
@@ -66,9 +88,11 @@ class CoastalRiskAgent(BaseAgent):
             "Proximity or polygon intersection indicates potential exposure, but does not "
             "model hydrodynamic inundation depth or wave force without local bathymetry and DEM data.",
             "Population figures reflect official Census counts and do not account for real-time "
-            "transient, tourist, or floating populations."
+            "transient, tourist, or floating populations.",
         ]
         errors: List[str] = []
+        live_provider_failed = False
+        finding_seq = 1
 
         # 1. Parse and validate hazard spatial inputs
         hazard_geom, hazard_bbox, hazard_center, impact_radius_km, parse_err = self._extract_hazard_inputs(task)
@@ -120,10 +144,10 @@ class CoastalRiskAgent(BaseAgent):
                 metadata={"investigation_id": task.investigation_id},
             )
 
-        # Determine reference center point for distance calculations
+        # Determine reference center point for distance calculations and marine observation queries
         ref_lat, ref_lon = self._get_reference_center(hazard_geom, hazard_bbox, hazard_center, task)
 
-        # 3. Perform deterministic spatial screening & intersections
+        # 3. Deterministic Spatial Screening & Intersections
         intersected_features: List[Dict[str, Any]] = []
         proximity_features: List[Tuple[Dict[str, Any], float]] = []
 
@@ -167,7 +191,7 @@ class CoastalRiskAgent(BaseAgent):
             if is_intersecting:
                 intersected_features.append(feat)
 
-        # 4. Generate verifiable evidence records for intersected features
+        # 4. Generate verifiable evidence records for intersected features (primary evidence)
         for feat in intersected_features:
             ev_id = f"evi_cf_{feat['id']}"
             raw_payload_str = json.dumps(feat, sort_keys=True)
@@ -195,8 +219,7 @@ class CoastalRiskAgent(BaseAgent):
                 )
             )
 
-        # 5. Synthesize atomic findings backed by evidence
-        finding_seq = 1
+        # 5. Synthesize spatial exposure findings
         hazard_ref_id = task.parameters.get("hazard_event_id", "unspecified_hazard")
 
         if not intersected_features:
@@ -238,6 +261,7 @@ class CoastalRiskAgent(BaseAgent):
                             verification_state=VerificationState.UNVERIFIED,
                         )
                     )
+                    finding_seq += 1
         else:
             # Categorize features
             settlements = [f for f in intersected_features if f.get("feature_type") == "settlement"]
@@ -336,7 +360,97 @@ class CoastalRiskAgent(BaseAgent):
                 )
                 finding_seq += 1
 
-        status = AgentStatus.PARTIAL if (db_offline or errors) else AgentStatus.COMPLETED
+        # 6. Live Marine Data Ingestion (Real Open-Meteo Marine API)
+        live_obs: Optional[LiveMarineObservation] = None
+        if ref_lat is not None and ref_lon is not None:
+            try:
+                obs, live_err = await self.marine_client.fetch_current_conditions(ref_lat, ref_lon)
+                if obs:
+                    live_obs = obs
+                    obs_hour = obs.observation_time.strftime("%Y%m%d%H")
+                    lat_tag = int(round(obs.latitude * 100))
+                    lon_tag = int(round(obs.longitude * 100))
+                    live_ev_id = f"evi_live_marine_{lat_tag}_{lon_tag}_{obs_hour}"
+
+                    live_ev = EvidenceRecord(
+                        evidence_id=live_ev_id,
+                        source_name=obs.source_name,
+                        source_url=obs.source_url,
+                        source_identifier=obs.source_identifier,
+                        observation_time=obs.observation_time,
+                        retrieval_time=obs.retrieval_time,
+                        latitude=obs.latitude,
+                        longitude=obs.longitude,
+                        data_type="live_marine_observation",
+                        raw_data=obs.raw_payload,
+                        units=obs.units,
+                        dataset_metadata={
+                            "provider": "Open-Meteo Marine API",
+                            "endpoint": obs.source_url,
+                            "retrieval_status": "success",
+                            "license": "Non-commercial open data / CC-BY 4.0",
+                        },
+                        hash=obs.hash,
+                    )
+                    evidence.append(live_ev)
+
+                    if obs.wave_height is not None:
+                        claim_main = (
+                            f"Live ocean observation at ({obs.latitude:.2f}°N, {obs.longitude:.2f}°E) records "
+                            f"significant wave height of {obs.wave_height:.2f} m"
+                        )
+                        details = []
+                        if obs.swell_wave_height is not None:
+                            details.append(f"swell height {obs.swell_wave_height:.2f} m")
+                        if obs.wave_period is not None:
+                            details.append(f"wave period {obs.wave_period:.1f} s")
+                        if obs.wind_wave_height is not None:
+                            details.append(f"wind wave {obs.wind_wave_height:.2f} m")
+
+                        claim_str = f"{claim_main} ({', '.join(details)})." if details else f"{claim_main}."
+                        if obs.is_high_wave_hazard(threshold_m=2.0):
+                            claim_str += " Exceeds coastal high-wave hazard screening advisory threshold (>=2.0m)."
+
+                        findings.append(
+                            Finding(
+                                finding_id=f"f_coastal_{task.investigation_id}_{finding_seq}",
+                                claim=claim_str,
+                                value=obs.wave_height,
+                                unit="m",
+                                evidence_ids=[live_ev_id],
+                                uncertainty=(
+                                    f"Real-time observation from Open-Meteo Marine API at {obs.retrieval_time.strftime('%Y-%m-%dT%H:%M:%SZ')}. "
+                                    f"Open-water significant wave height; excludes shallow bathymetric wave breaking and coastal runup."
+                                ),
+                                is_forecast=False,
+                                verification_state=VerificationState.UNVERIFIED,
+                            )
+                        )
+                        finding_seq += 1
+                elif live_err:
+                    limitations.append(
+                        f"Live marine provider query unavailable ({live_err}). "
+                        f"Proceeding with historical coastal reference data and historical hazard precedents."
+                    )
+                    live_provider_failed = True
+            except Exception as live_exc:
+                limitations.append(
+                    f"Live marine provider communication error ({live_exc}). "
+                    f"Proceeded with historical coastal reference data."
+                )
+                live_provider_failed = True
+
+        # 7. Historical Hazard Precedents Integration (IMD / INCOIS Verified Records)
+        matched_precedents = match_historical_precedents(task.query or "", ref_lat, ref_lon)
+        for prec in matched_precedents[:2]:
+            prec_ev = build_historical_evidence_record(prec)
+            evidence.append(prec_ev)
+            prec_finding = build_historical_finding(task.investigation_id, finding_seq, prec)
+            findings.append(prec_finding)
+            finding_seq += 1
+
+        is_partial = db_offline or live_provider_failed or bool(errors)
+        status = AgentStatus.PARTIAL if is_partial else AgentStatus.COMPLETED
 
         return AgentResult(
             agent_id=self.agent_id,
@@ -350,6 +464,8 @@ class CoastalRiskAgent(BaseAgent):
                 "features_analyzed": len(features),
                 "features_intersected": len(intersected_features),
                 "spatial_crs": "EPSG:4326",
+                "live_marine_retrieved": live_obs is not None,
+                "historical_precedents_matched": len(matched_precedents),
             },
         )
 
@@ -402,7 +518,6 @@ class CoastalRiskAgent(BaseAgent):
         # Fallback to top-level task attributes if parameters did not specify center/radius
         if not hazard_geom and not hazard_bbox and not hazard_center:
             q_lower = (task.query or "").lower()
-            # If query explicitly targets deep offshore Arabian Sea (e.g. 350km offshore)
             if "350km offshore" in q_lower or ("deep" in q_lower and "arabian sea" in q_lower):
                 hazard_center = {"latitude": 12.0, "longitude": 71.0}
                 impact_radius_km = 50.0
@@ -417,7 +532,6 @@ class CoastalRiskAgent(BaseAgent):
                 except ValueError as ve:
                     return None, None, None, None, f"Invalid top-level task coordinates: {ve}"
             else:
-                # Resolve spatial scope from query keywords if referring to coastal features or study area
                 if "mangaluru" in q_lower or "mangalore" in q_lower:
                     hazard_center = {"latitude": 12.9141, "longitude": 74.8560}
                     impact_radius_km = 30.0
@@ -449,8 +563,6 @@ class CoastalRiskAgent(BaseAgent):
                         "projected track",
                     ]
                 ):
-                    # Default spatial screening to the Karnataka coastal study area bounding box
-                    # (min_lon=74.5, min_lat=12.5, max_lon=75.5, max_lat=14.0)
                     hazard_bbox = (74.5, 12.5, 75.5, 14.0)
 
         return hazard_geom, hazard_bbox, hazard_center, impact_radius_km, None
@@ -462,7 +574,7 @@ class CoastalRiskAgent(BaseAgent):
         hazard_center: Optional[Dict[str, float]],
         task: InvestigationTask,
     ) -> Tuple[Optional[float], Optional[float]]:
-        """Calculate a reference center point (lat, lon) for proximity calculations."""
+        """Calculate a reference center point (lat, lon) for proximity and marine queries."""
         if hazard_center:
             return hazard_center["latitude"], hazard_center["longitude"]
 
@@ -489,7 +601,6 @@ class CoastalRiskAgent(BaseAgent):
         otherwise fall back safely to the verified reference dataset.
         Returns: (features_list, db_offline_flag)
         """
-        # If previously determined to be offline, return reference dataset immediately
         if CoastalRiskAgent._db_available is False:
             return VERIFIED_COASTAL_FEATURES, True
 
@@ -505,7 +616,6 @@ class CoastalRiskAgent(BaseAgent):
                     result = await session.execute(stmt)
                     return result.scalars().all()
 
-            # Fast 0.5s timeout so offline DB does not delay unit tests or agent response
             db_features = await asyncio.wait_for(_query(), timeout=0.5)
 
             if db_features:
@@ -527,5 +637,4 @@ class CoastalRiskAgent(BaseAgent):
             CoastalRiskAgent._db_available = False
             logger.info("Database unavailable for coastal feature query, using reference data: %s", e)
 
-        # Verified reference fallback
         return VERIFIED_COASTAL_FEATURES, True

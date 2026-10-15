@@ -29,14 +29,15 @@ if backend_path not in sys.path:
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-# pyrefly: ignore [missing-import]
+from app.agents.coastal_risk.historical import (
+    VERIFIED_HISTORICAL_HAZARDS,
+    HistoricalHazardRecord,
+)
 from app.agents.coastal_risk.reference_data import (
     DATA_SOURCE_METADATA,
     VERIFIED_COASTAL_FEATURES,
 )
-# pyrefly: ignore [missing-import]
 from app.agents.coastal_risk.spatial import validate_coordinates
-# pyrefly: ignore [missing-import]
 from app.core.config import settings
 # pyrefly: ignore [missing-import]
 from app.models import CoastalFeature, DataSource, EvidenceRecordModel
@@ -114,6 +115,28 @@ class CoastalDataImporter:
 
         return True, None
 
+    def validate_historical_record(self, record: Any) -> Tuple[bool, Optional[str]]:
+        """Validate historical hazard record provenance, timestamps, and parameters."""
+        if not hasattr(record, "event_id") or not record.event_id:
+            return False, "Missing 'event_id'"
+        if not hasattr(record, "agency") or not record.agency:
+            return False, "Missing 'agency' provenance"
+        try:
+            validate_coordinates(record.latitude, record.longitude)
+        except ValueError as err:
+            return False, f"Invalid coordinates: {err}"
+
+        if record.start_time > record.end_time:
+            return False, "start_time must be before end_time"
+        if not (record.start_time <= record.peak_time <= record.end_time):
+            return False, "peak_time must fall within [start_time, end_time]"
+        if record.peak_wave_height_m < 0:
+            return False, "peak_wave_height_m cannot be negative"
+        if record.peak_wind_gust_kmh < 0:
+            return False, "peak_wind_gust_kmh cannot be negative"
+
+        return True, None
+
     async def run(self) -> Dict[str, int]:
         """Execute the ingestion pipeline."""
         stats = {
@@ -122,11 +145,21 @@ class CoastalDataImporter:
             "updated": 0,
             "skipped": 0,
             "rejected": 0,
+            "historical_validated": 0,
         }
 
         print(f"[*] Starting coastal data import for study area: {DATA_SOURCE_METADATA['study_area']['region']}")
         print(f"[*] Provider: {DATA_SOURCE_METADATA['provider']}")
         print(f"[*] License: {DATA_SOURCE_METADATA['license']}")
+
+        # Validate verified historical hazards
+        print(f"[*] Validating verified historical coastal hazards (IMD / INCOIS)...")
+        for h_rec in VERIFIED_HISTORICAL_HAZARDS:
+            h_valid, h_err = self.validate_historical_record(h_rec)
+            if h_valid:
+                stats["historical_validated"] += 1
+            else:
+                print(f"    [-] Invalid historical hazard record '{h_rec.event_id}': {h_err}")
 
         features_to_import = VERIFIED_COASTAL_FEATURES
         if self.limit:
@@ -152,11 +185,12 @@ class CoastalDataImporter:
         if self.dry_run or not self.session_maker:
             stats["inserted"] = len(valid_records)
             print("\n[=] Import Summary (DRY-RUN / VALIDATION ONLY):")
-            print(f"    Total Processed: {stats['processed']}")
-            print(f"    Valid Records:   {stats['inserted']}")
-            print(f"    Rejected:        {stats['rejected']}")
-            print(f"    Updated:         {stats['updated']}")
-            print(f"    Skipped:         {stats['skipped']}")
+            print(f"    Total Processed:         {stats['processed']}")
+            print(f"    Valid Coastal Features:  {stats['inserted']}")
+            print(f"    Historical Hazards:      {stats['historical_validated']}")
+            print(f"    Rejected:                {stats['rejected']}")
+            print(f"    Updated:                 {stats['updated']}")
+            print(f"    Skipped:                 {stats['skipped']}")
             return stats
 
         # Database persistence
