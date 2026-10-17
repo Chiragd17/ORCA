@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Clock, Compass, Play, Loader2 } from 'lucide-react';
+import { MapPin, Clock, Compass, Play, Loader2, Zap } from 'lucide-react';
 
 interface Props {
   onRunAnalysis: (query: string, lat: number, lon: number, radiusKm: number, timeHorizon: string) => void;
@@ -42,26 +42,54 @@ export const ResearchControls: React.FC<Props> = ({ onRunAnalysis, loading }) =>
   const [activeSectorId, setActiveSectorId] = useState<string>('statewide');
   const [timeHorizon, setTimeHorizon] = useState<string>('forecast_7d');
   const [variableFocus, setVariableFocus] = useState<string>('all');
-  const [radiusKm, setRadiusKm] = useState<number>(160);
   const [selectedPreset, setSelectedPreset] = useState<SectorPreset>(SECTOR_PRESETS[0]);
+  const [autoRun, setAutoRun] = useState<boolean>(true);
+
+  const executeAnalysis = (preset: SectorPreset, horizon: string, variable: string) => {
+    const query = `Analyze ${variable === 'all' ? 'sea surface temperature, wave dynamics, and ocean currents' : variable} off ${preset.name} across ${horizon} horizon against ERA5 climatological baseline.`;
+    onRunAnalysis(query, preset.lat, preset.lon, preset.rad, horizon);
+  };
 
   const handleSectorSelect = (preset: SectorPreset) => {
     setActiveSectorId(preset.id);
     setSelectedPreset(preset);
-    setRadiusKm(preset.rad);
+    if (autoRun) {
+      executeAnalysis(preset, timeHorizon, variableFocus);
+    }
+  };
+
+  const handleHorizonChange = (newHorizon: string) => {
+    setTimeHorizon(newHorizon);
+    if (autoRun) {
+      executeAnalysis(selectedPreset, newHorizon, variableFocus);
+    }
+  };
+
+  const handleVariableChange = (newVariable: string) => {
+    setVariableFocus(newVariable);
+    if (autoRun) {
+      executeAnalysis(selectedPreset, timeHorizon, newVariable);
+    }
   };
 
   const handleRun = () => {
-    const query = `Analyze ${variableFocus === 'all' ? 'sea surface temperature, wave dynamics, and ocean currents' : variableFocus} off ${selectedPreset.name} across ${timeHorizon} horizon against ERA5 climatological baseline.`;
-    onRunAnalysis(query, selectedPreset.lat, selectedPreset.lon, radiusKm, timeHorizon);
+    executeAnalysis(selectedPreset, timeHorizon, variableFocus);
+  };
+
+  const toggleAutoRun = () => {
+    const nextState = !autoRun;
+    setAutoRun(nextState);
+    if (nextState) {
+      executeAnalysis(selectedPreset, timeHorizon, variableFocus);
+    }
   };
 
   return (
     <div className="p-4 rounded-2xl bg-white border border-[#d8e4f0] shadow-xs space-y-3">
       {/* Primary Top Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5 items-center">
+      <div className="flex flex-wrap items-center gap-2.5">
         {/* Study Region Selector */}
-        <div className="relative">
+        <div className="flex-1 min-w-[200px]">
           <div className="flex items-center gap-2 px-3 py-2 bg-[#f8fafc] border border-slate-200 rounded-xl text-xs text-[#0a1628]">
             <MapPin className="w-4 h-4 text-teal-600 flex-shrink-0" />
             <select
@@ -82,12 +110,12 @@ export const ResearchControls: React.FC<Props> = ({ onRunAnalysis, loading }) =>
         </div>
 
         {/* Temporal Horizon Selector */}
-        <div className="relative">
+        <div className="flex-1 min-w-[220px]">
           <div className="flex items-center gap-2 px-3 py-2 bg-[#f8fafc] border border-slate-200 rounded-xl text-xs text-[#0a1628]">
             <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
             <select
               value={timeHorizon}
-              onChange={(e) => setTimeHorizon(e.target.value)}
+              onChange={(e) => handleHorizonChange(e.target.value)}
               className="w-full bg-transparent border-none text-xs font-semibold focus:outline-hidden text-[#0a1628] cursor-pointer"
             >
               {TIME_HORIZONS.map((h) => (
@@ -100,12 +128,12 @@ export const ResearchControls: React.FC<Props> = ({ onRunAnalysis, loading }) =>
         </div>
 
         {/* Variable Focus Selector */}
-        <div className="relative">
+        <div className="flex-1 min-w-[200px]">
           <div className="flex items-center gap-2 px-3 py-2 bg-[#f8fafc] border border-slate-200 rounded-xl text-xs text-[#0a1628]">
             <Compass className="w-4 h-4 text-purple-600 flex-shrink-0" />
             <select
               value={variableFocus}
-              onChange={(e) => setVariableFocus(e.target.value)}
+              onChange={(e) => handleVariableChange(e.target.value)}
               className="w-full bg-transparent border-none text-xs font-semibold focus:outline-hidden text-[#0a1628] cursor-pointer"
             >
               {VARIABLE_FOCUSES.map((v) => (
@@ -117,27 +145,40 @@ export const ResearchControls: React.FC<Props> = ({ onRunAnalysis, loading }) =>
           </div>
         </div>
 
+        {/* Auto-run toggle pill matching Person 3 */}
+        <button
+          type="button"
+          onClick={toggleAutoRun}
+          title={autoRun ? "Auto-Run is ON (instant analysis upon option change)" : "Auto-Run is OFF (configure options then click Run Research Analysis)"}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer whitespace-nowrap ${
+            autoRun
+              ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 shadow-2xs'
+              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+          }`}
+        >
+          <Zap className={`w-3.5 h-3.5 ${autoRun ? 'text-blue-600 fill-blue-600' : 'text-slate-400'}`} />
+          <span>{autoRun ? 'Auto: ON' : 'Auto: OFF'}</span>
+        </button>
+
         {/* Run Research Button */}
-        <div>
-          <button
-            type="button"
-            onClick={handleRun}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Computing Anomaly Engine...</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-white" />
-                <span>Run Research Analysis</span>
-              </>
-            )}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleRun}
+          disabled={loading}
+          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-sm transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Analyzing...</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4 fill-white" />
+              <span>Run Research Analysis</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Sector Quick Pills matching Person 3 */}
