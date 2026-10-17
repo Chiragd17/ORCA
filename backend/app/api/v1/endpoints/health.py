@@ -21,8 +21,17 @@ async def get_health(response: Response):
                 await conn.execute(text("SELECT 1"))
                 db_status = "connected"
     except Exception as e:
-        logger.warning(f"Database health check failed: {type(e).__name__}: {e}")
-        db_status = "disconnected"
+        # Fallback to synchronous engine check in a thread (handles Windows event loop compatibility)
+        try:
+            from app.db.hazard_session import hazard_engine
+            def _check_sync():
+                with hazard_engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+            await asyncio.to_thread(_check_sync)
+            db_status = "connected"
+        except Exception as sync_e:
+            logger.warning(f"Database health check failed: {type(sync_e).__name__}: {sync_e}")
+            db_status = "disconnected"
 
     return HealthResponse(
         status="healthy",
