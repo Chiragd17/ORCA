@@ -3,6 +3,7 @@ import {
   InvestigationCreateRequest,
   ExecutionEvent,
   EvidenceRecord,
+  OceanResearchData,
 } from '../types';
 
 const CANDIDATE_BASES = [
@@ -126,6 +127,21 @@ class ApiClient {
       ...(params.end_time && { end_time: params.end_time }),
     });
     return this.request(`/marine/observations?${query.toString()}`);
+  }
+
+  async getMarineResearch(params: {
+    lat: number;
+    lon: number;
+    radius_km?: number;
+    time_horizon?: string;
+  }): Promise<OceanResearchData> {
+    const query = new URLSearchParams({
+      lat: params.lat.toString(),
+      lon: params.lon.toString(),
+      ...(params.radius_km && { radius_km: params.radius_km.toString() }),
+      ...(params.time_horizon && { time_horizon: params.time_horizon }),
+    });
+    return this.request(`/marine/research?${query.toString()}`);
   }
 
   async getHazards(params?: { status?: string; hazard_type?: string }): Promise<any> {

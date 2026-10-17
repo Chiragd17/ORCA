@@ -27,6 +27,7 @@ export interface EvidenceRecord {
   units?: Record<string, string>;
   dataset_metadata?: Record<string, any>;
   hash?: string;
+  payload_hash?: string;
 }
 
 export interface Finding {
@@ -39,6 +40,7 @@ export interface Finding {
   uncertainty?: string;
   is_forecast: boolean;
   verification_state: VerificationState;
+  confidence_score?: number;
 }
 
 export interface ExecutionEvent {
@@ -123,3 +125,89 @@ export interface CoastalFinding {
   distanceKm?: number;
   evidenceId?: string;
 }
+
+export interface OceanStation {
+  id: string;
+  name: string;
+  sector: string;
+  latitude: number;
+  longitude: number;
+  latest_sst: number;
+  wave_height: number;
+  current_speed: number;
+  status: 'active' | 'nominal' | 'advisory';
+  timestamp: string;
+}
+
+export interface OceanTimeSeriesPoint {
+  time: string;
+  sst: number;
+  sst_c?: number;
+  baseline_sst: number;
+  baseline_sst_c?: number;
+  sst_anomaly: number;
+  sst_anomaly_c?: number;
+  wave_height: number;
+  wave_height_m?: number;
+  wave_period: number;
+  current_velocity: number;
+  current_velocity_ms?: number;
+  current_direction: number;
+  current_direction_deg?: number;
+  chlorophyll: number;
+}
+
+export interface OceanObservationRecord {
+  id: string;
+  variable: string;
+  station_name: string;
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+  observation_time?: string;
+  value: number;
+  unit: string;
+  units?: string;
+  provider: string;
+  quality_flag: string;
+  evidence_id: string;
+}
+
+export interface OceanSummary {
+  latest_sst: number;
+  latest_sst_c?: number;
+  baseline_sst: number;
+  baseline_sst_c?: number;
+  sst_anomaly: number;
+  anomaly_classification: string;
+  wave_height_mean: number;
+  wave_height_peak: number;
+  latest_wave_height_m?: number;
+  swell_period_mean: number;
+  current_velocity_mean: number;
+  latest_current_velocity_ms?: number;
+  current_direction_degrees: number;
+  latest_current_direction_deg?: number;
+  chlorophyll_proxy_mg_m3: number;
+  active_regime: string;
+  thermal_regime?: string;
+  circulation_regime?: string;
+  scientific_status: string;
+  regime_description: string;
+  anomaly_description?: string;
+  total_observations: number;
+  verified_evidence_count: number;
+}
+
+export interface OceanResearchData {
+  summary: OceanSummary;
+  stations: OceanStation[];
+  time_series: OceanTimeSeriesPoint[];
+  observations: OceanObservationRecord[];
+  evidence: EvidenceRecord[];
+  findings?: Finding[];
+  limitations: string[];
+  data_nature: string;
+  source_info: Record<string, any>;
+}
+

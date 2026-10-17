@@ -1,12 +1,13 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { FishermanWorkspace } from '../features/fisherman';
-import { MarineMonitoringWorkspace } from '../features/marine-monitoring';
 import { ProtectedAreasWorkspace } from '../features/protected-areas';
 import { CoastalAuthorityWorkspace } from '../features/coastal-authority';
 import { DisasterManagementWorkspace } from '../features/disaster-management';
 import { CoastalRiskWorkspace } from '../features/coastal-risk';
 import { AgentsHub } from '../features/agents-hub';
+
+import { OceanResearchWorkspace } from '../features/ocean-research';
 
 export const router = createBrowserRouter([
   {
@@ -27,7 +28,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'agents/ocean-research',
-        element: <MarineMonitoringWorkspace />,
+        element: <OceanResearchWorkspace />,
       },
       {
         path: 'coastal-risk',
@@ -39,7 +40,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'marine-monitoring',
-        element: <MarineMonitoringWorkspace />,
+        element: <OceanResearchWorkspace />,
       },
       {
         path: 'protected-areas',

@@ -74,7 +74,7 @@ export const AgentsHub: React.FC = () => {
         { label: 'Test Coverage', value: '94 / 94 Passed' },
       ],
       isInteractive: true,
-      route: '/marine-monitoring',
+      route: '/agents/ocean-research',
     },
     {
       id: 'marine-hazard',
@@ -176,9 +176,23 @@ export const AgentsHub: React.FC = () => {
           return (
             <div
               key={agent.id}
+              onClick={() => {
+                if (agent.isInteractive && agent.route) {
+                  navigate(agent.route);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (agent.isInteractive && agent.route && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  navigate(agent.route);
+                }
+              }}
+              tabIndex={agent.isInteractive ? 0 : undefined}
+              role={agent.isInteractive ? 'button' : undefined}
+              aria-label={agent.isInteractive ? `Open ${agent.title} scientific workspace directly` : undefined}
               className={`rounded-2xl bg-white border transition-all duration-200 p-6 flex flex-col justify-between shadow-xs ${
                 agent.isInteractive
-                  ? 'border-blue-200 hover:border-blue-400 hover:shadow-md ring-1 ring-blue-500/10'
+                  ? 'border-blue-200 hover:border-blue-500 hover:shadow-lg hover:ring-2 hover:ring-blue-500/20 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500'
                   : 'border-slate-200 hover:border-slate-300'
               }`}
             >
@@ -239,13 +253,16 @@ export const AgentsHub: React.FC = () => {
               {/* Action Button */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-[11px] text-slate-400">
-                  {agent.isInteractive ? 'Ready for live interactive screening' : 'Architecture scaffold in place'}
+                  {agent.isInteractive ? 'Click anywhere on card to launch workspace' : 'Architecture scaffold in place'}
                 </span>
 
                 {agent.isInteractive ? (
                   <button
                     type="button"
-                    onClick={() => navigate(agent.route!)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(agent.route!);
+                    }}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
                   >
                     <span>Launch Agent Workspace</span>
@@ -254,7 +271,10 @@ export const AgentsHub: React.FC = () => {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setSelectedAgentModal(agent.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedAgentModal(agent.id);
+                    }}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
                   >
                     <span>View Spec</span>

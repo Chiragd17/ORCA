@@ -4,6 +4,13 @@ from pydantic import BaseModel, Field
 
 from app.agents.base import Finding
 from app.evidence.schemas import EvidenceRecord, VerificationSummary
+from app.schemas.marine import (
+    OceanResearchResponse,
+    OceanStation,
+    OceanSummary,
+    OceanTimeSeriesPoint,
+    OceanObservationRecord,
+)
 
 
 class HealthResponse(BaseModel):
