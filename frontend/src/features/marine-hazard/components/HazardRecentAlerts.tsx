@@ -5,7 +5,7 @@ import { HazardEvent } from '../types';
 interface Props {
   liveAlerts: HazardEvent[];
   historicalEvents: HazardEvent[];
-  onSelectEvent?: (event: HazardEvent) => void;
+  onSelectEvent?: (event: HazardEvent, scrollToMap?: boolean) => void;
 }
 
 // Canonical Karnataka & Arabian Sea Cyclone Precedents verified in NOAA IBTrACS & PostgreSQL DB
@@ -279,7 +279,7 @@ export const HazardRecentAlerts: React.FC<Props> = ({
               <span className="text-[11px] text-slate-400 italic">IMD RSMC New Delhi & IBTrACS</span>
               <button
                 onClick={() => {
-                  onSelectEvent?.(selectedEvent);
+                  onSelectEvent?.(selectedEvent, true);
                   setSelectedEvent(null);
                 }}
                 className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"

@@ -383,7 +383,7 @@ export const MarineHazardWorkspace: React.FC = () => {
     );
   }, [loadInitialData, runHazardAnalysis]);
 
-  const handleSelectEvent = async (event: HazardEvent) => {
+  const handleSelectEvent = async (event: HazardEvent, scrollToMap: boolean = false) => {
     setSelectedEvent(event);
     setActiveMapLayer('cyclone');
     try {
@@ -410,10 +410,11 @@ export const MarineHazardWorkspace: React.FC = () => {
     } catch {
       // keep existing track if fetch fails
     }
-    // Smoothly scroll to map view for instant visual track confirmation
-    const mapCard = document.getElementById('hazard-map-card');
-    if (mapCard) {
-      mapCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (scrollToMap) {
+      const mapCard = document.getElementById('hazard-map-card');
+      if (mapCard) {
+        mapCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
   };
 

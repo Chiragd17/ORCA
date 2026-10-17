@@ -20,7 +20,7 @@ interface Props {
   evidence: EvidenceRecordItem[];
   limitations?: string[];
   loading?: boolean;
-  onSelectEvent?: (event: HazardEvent) => void;
+  onSelectEvent?: (event: HazardEvent, scrollToMap?: boolean) => void;
 }
 
 type TabId = 'inventory' | 'track' | 'findings' | 'evidence' | 'methodology';
@@ -126,9 +126,12 @@ export const HazardDetailedResults: React.FC<Props> = ({
                   return (
                     <tr
                       key={ev.hazard_id}
-                      onClick={() => onSelectEvent?.(ev)}
+                      onClick={() => {
+                        onSelectEvent?.(ev);
+                        setActiveTab('track');
+                      }}
                       className={`hover:bg-orange-50/50 transition-colors cursor-pointer ${
-                        isSelected ? 'bg-orange-50 font-medium' : ''
+                        isSelected ? 'bg-orange-50/80 border-l-4 border-l-orange-500 font-medium' : ''
                       }`}
                     >
                       <td className="py-2.5 px-3 font-mono text-[11px] text-blue-700">
@@ -153,15 +156,34 @@ export const HazardDetailedResults: React.FC<Props> = ({
                         {ev.last_observed ? new Date(ev.last_observed).toLocaleDateString() : 'N/A'}
                       </td>
                       <td className="py-2.5 px-3 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectEvent?.(ev);
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-orange-100 hover:bg-orange-200 text-orange-800 text-[11px] font-bold transition cursor-pointer"
-                        >
-                          View Track
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectEvent?.(ev);
+                              setActiveTab('track');
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-[11px] font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                            title="View chronological waypoint fixes"
+                          >
+                            <Compass className="w-3.5 h-3.5" />
+                            <span>View Track</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectEvent?.(ev);
+                              const el = document.getElementById('hazard-map-card');
+                              el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }}
+                            className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition cursor-pointer"
+                            title="Focus track on map"
+                          >
+                            Map ↑
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -173,7 +195,48 @@ export const HazardDetailedResults: React.FC<Props> = ({
 
         {/* TAB 2: Waypoint Fixes */}
         {activeTab === 'track' && (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto space-y-3">
+            {/* Context header with storm name, metadata, and quick navigation */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-orange-50/70 border border-orange-200/80">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-orange-600 text-white shadow-xs">
+                  <Compass className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-[#0a1628] flex items-center gap-1.5">
+                    <span>{selectedEvent?.name || 'Selected Cyclone Trajectory'}</span>
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-white border border-orange-200 text-orange-700 font-bold">
+                      {trackPoints.length} Chronological Fixes
+                    </span>
+                  </h4>
+                  <p className="text-[10.5px] text-slate-500 font-mono mt-0.5">
+                    {selectedEvent?.hazard_id} • Basin: {selectedEvent?.basin?.replace('_', ' ') || 'Arabian Sea'} • Source: {selectedEvent?.source || 'NOAA IBTrACS'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('inventory')}
+                  className="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition cursor-pointer font-medium"
+                >
+                  ← Back to Inventory
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById('hazard-map-card');
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }}
+                  className="px-3 py-1 text-xs font-bold bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition cursor-pointer flex items-center gap-1 shadow-xs"
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>Focus on Map ↑</span>
+                </button>
+              </div>
+            </div>
+
             {trackPoints.length === 0 ? (
               <div className="p-8 text-center text-slate-400">
                 <Compass className="w-6 h-6 mx-auto mb-2 text-slate-300" />
