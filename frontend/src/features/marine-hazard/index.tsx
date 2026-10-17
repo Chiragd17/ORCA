@@ -533,7 +533,6 @@ export const MarineHazardWorkspace: React.FC = () => {
               lon={activeParams.lon}
               timeRange={activeParams.timeHorizon}
               locationName={activeParams.presetName}
-              onClose={() => setForecastVisible(false)}
             />
           </div>
         ) : (

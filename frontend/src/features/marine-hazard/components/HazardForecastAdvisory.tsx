@@ -8,7 +8,6 @@ import {
   Compass,
   Loader2,
   Info,
-  X,
   ChevronUp,
   ChevronDown,
 } from 'lucide-react';
@@ -96,7 +95,6 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
   lon,
   locationName = 'Karnataka Coastal Shelf',
   onForecastDataLoaded,
-  onClose,
 }) => {
   const [hours, setSelectedHours] = useState<number>(24);
   const [vesselType, setVesselType] = useState<'traditional' | 'motorized_small' | 'mechanized_trawler'>('motorized_small');
@@ -318,24 +316,13 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
 
         <div className="flex items-center gap-1.5">
           <button
+            type="button"
             onClick={() => setIsCardMinimized(!isCardMinimized)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
-            title={isCardMinimized ? 'Expand Forecast Advisory' : 'Minimize to Summary'}
+            className="px-2.5 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold bg-slate-50 shadow-2xs"
+            title={isCardMinimized ? 'Expand Forecast Advisory' : 'Collapse to Summary'}
           >
-            <span className="text-[11px] text-slate-500 hidden sm:inline">
-              {isCardMinimized ? 'Expand' : 'Collapse'}
-            </span>
-            {isCardMinimized ? <ChevronDown className="w-4 h-4 text-slate-600" /> : <ChevronUp className="w-4 h-4 text-slate-600" />}
-          </button>
-          <button
-            onClick={() => {
-              setIsCardMinimized(true);
-              onClose?.();
-            }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-            title="Minimize / Close Advisory"
-          >
-            <X className="w-4 h-4" />
+            <span>{isCardMinimized ? 'Expand' : 'Collapse'}</span>
+            {isCardMinimized ? <ChevronDown className="w-3.5 h-3.5 text-slate-600" /> : <ChevronUp className="w-3.5 h-3.5 text-slate-600" />}
           </button>
         </div>
       </div>
