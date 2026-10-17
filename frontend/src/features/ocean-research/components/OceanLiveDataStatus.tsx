@@ -44,10 +44,21 @@ export const OceanLiveDataStatus: React.FC<Props> = ({
 }) => {
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
 
+  const getCompassHeading = (deg: number): string => {
+    const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    const idx = Math.round((deg % 360) / 22.5);
+    return dirs[idx % 16];
+  };
+
   const curSst = summary?.latest_sst ?? summary?.latest_sst_c ?? 29.5;
   const curWave = summary?.wave_height_peak ?? summary?.latest_wave_height_m ?? 0.62;
   const curCurrent = summary?.current_velocity_mean ?? summary?.latest_current_velocity_ms ?? 0.28;
   const curDir = summary?.current_direction_degrees ?? summary?.latest_current_direction_deg ?? 185;
+  const curChla = summary?.chlorophyll_proxy_mg_m3 ?? 1.46;
+  const curPeriod = summary?.swell_period_mean ?? 8.5;
+  const baselineTemp = summary?.baseline_sst ?? summary?.baseline_sst_c ?? 29.2;
+  const curMonthName = new Date().toLocaleString('en-US', { month: 'short' });
+  const curMonthFullName = new Date().toLocaleString('en-US', { month: 'long' });
 
   const sources: ProviderSource[] = [
     {
@@ -80,7 +91,7 @@ export const OceanLiveDataStatus: React.FC<Props> = ({
         {
           label: 'Current Speed',
           value: `${curCurrent.toFixed(2)} m/s`,
-          detail: `Direction ${Math.round(curDir)}° SSE`,
+          detail: `Direction ${Math.round(curDir)}° ${getCompassHeading(curDir)}`,
         },
         {
           label: 'Forecast Horizon',
@@ -95,7 +106,7 @@ export const OceanLiveDataStatus: React.FC<Props> = ({
       category: 'Ocean Climatology',
       status: 'online',
       provider: 'ECMWF Copernicus Climate Change Service (C3S)',
-      summary: `Arabian Sea 30-Yr Baseline • Oct: 29.20°C (1991–2020)`,
+      summary: `Arabian Sea 30-Yr Baseline • ${curMonthName}: ${baselineTemp.toFixed(2)}°C (1991–2020)`,
       lastChecked: 'Continuous verified baseline sync',
       frequency: '30-year monthly climatology benchmark',
       datum: 'ERA5 High-Resolution Reanalysis (0.25°)',
@@ -106,7 +117,7 @@ export const OceanLiveDataStatus: React.FC<Props> = ({
       bgColor: 'bg-orange-50',
       borderColor: 'border-orange-100',
       metrics: [
-        { label: 'Current Month Baseline', value: '29.20 °C', detail: 'October 30-year average' },
+        { label: 'Current Month Baseline', value: `${baselineTemp.toFixed(2)} °C`, detail: `${curMonthFullName} 30-year average` },
         { label: 'Monsoon Upwelling Minimum', value: '27.80 °C', detail: 'July-August seasonal low' },
         { label: 'Pre-Monsoon Peak', value: '30.10 °C', detail: 'May seasonal peak' },
         { label: 'Thermal Delta Threshold', value: '±0.50 °C', detail: 'Significant anomaly trigger' },
@@ -118,7 +129,7 @@ export const OceanLiveDataStatus: React.FC<Props> = ({
       category: 'Satellite & Bio-optics',
       status: 'online',
       provider: 'European Union Copernicus Marine Service (Sentinel-3 OLCI & SLSTR)',
-      summary: `Global Ocean Physics & Colour • Chl-a: 0.42 mg/m³ • Live`,
+      summary: `Global Ocean Physics & Colour • Chl-a: ${curChla.toFixed(2)} mg/m³ • Live`,
       lastChecked: 'Live satellite telemetry stream',
       frequency: 'Daily satellite composites & near-realtime assimilations',
       datum: 'Global Ocean 1/12° Analysis (0.04° Sentinel-3)',
@@ -129,7 +140,7 @@ export const OceanLiveDataStatus: React.FC<Props> = ({
       bgColor: 'bg-emerald-50',
       borderColor: 'border-emerald-100',
       metrics: [
-        { label: 'Chlorophyll-a (Chl-a)', value: '0.42 mg/m³', detail: 'Coastal Arabian Sea average' },
+        { label: 'Chlorophyll-a (Chl-a)', value: `${curChla.toFixed(2)} mg/m³`, detail: 'Coastal Arabian Sea average' },
         { label: 'Optical Quality Flag', value: 'Valid (Clear)', detail: 'High-confidence clear sky' },
         { label: 'Resolution', value: '4 km / 0.04°', detail: 'Sentinel-3 OLCI merged' },
         { label: 'Feed Connection', value: 'Live & Operational', detail: 'Real-time telemetry stream active' },
@@ -153,7 +164,7 @@ export const OceanLiveDataStatus: React.FC<Props> = ({
       borderColor: 'border-cyan-100',
       metrics: [
         { label: 'Buoy SST', value: `${curSst.toFixed(2)} °C`, detail: 'Thermistor depth -1.0m' },
-        { label: 'Dominant Wave Period', value: '10.05 s', detail: 'Southwest swell' },
+        { label: 'Dominant Wave Period', value: `${curPeriod.toFixed(1)} s`, detail: 'Southwest swell' },
         { label: 'Atmospheric Pressure', value: '1010.4 hPa', detail: 'Calm barometric field' },
         { label: 'Station Status', value: 'Operational', detail: 'Live telemetry verified' },
       ],

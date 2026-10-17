@@ -96,7 +96,7 @@ export const OceanDataProvenance: React.FC<Props> = ({ evidence }) => {
 
         {/* Source items preview */}
         <div className="space-y-2">
-          {sources.slice(0, 3).map((src, i) => (
+          {sources.map((src, i) => (
             <div
               key={i}
               onClick={() => setIsOpen(true)}

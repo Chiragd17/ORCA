@@ -47,7 +47,7 @@ export const OceanRecentFindings: React.FC<Props> = ({ findings, evidence = [] }
   const filteredFindings = useMemo(() => {
     if (!searchQuery) return findings;
     const q = searchQuery.toLowerCase();
-    return findings.filter((f) => f.claim.toLowerCase().includes(q) || f.finding_id.toLowerCase().includes(q));
+    return findings.filter((f) => f.claim.toLowerCase().includes(q) || (f.finding_id || f.id || '').toLowerCase().includes(q));
   }, [findings, searchQuery]);
 
   return (
@@ -76,7 +76,7 @@ export const OceanRecentFindings: React.FC<Props> = ({ findings, evidence = [] }
               const { icon: Icon, color } = getFindingIcon(finding.claim);
               return (
                 <div
-                  key={finding.finding_id}
+                  key={finding.finding_id || finding.id}
                   onClick={() => setSelectedFinding(finding)}
                   className="group flex items-start gap-2.5 p-2 rounded-lg border border-[#e8eef5] hover:border-[#b8d4f0] hover:bg-[#f7fafc] cursor-pointer transition-all"
                 >
@@ -136,7 +136,7 @@ export const OceanRecentFindings: React.FC<Props> = ({ findings, evidence = [] }
                 const { icon: Icon, color, badge } = getFindingIcon(finding.claim);
                 return (
                   <div
-                    key={finding.finding_id}
+                    key={finding.finding_id || finding.id}
                     onClick={() => {
                       setSelectedFinding(finding);
                     }}
@@ -148,7 +148,7 @@ export const OceanRecentFindings: React.FC<Props> = ({ findings, evidence = [] }
                           <Icon className="w-3 h-3" />
                           <span>{badge}</span>
                         </span>
-                        <span className="text-[10px] font-mono text-[#6b8fc0]">{finding.finding_id}</span>
+                        <span className="text-[10px] font-mono text-[#6b8fc0]">{finding.finding_id || finding.id}</span>
                       </div>
                       <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">
                         {Math.round((finding.confidence_score ?? 0.95) * 100)}% confidence

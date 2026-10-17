@@ -10,3 +10,4 @@ export { OceanDetailedResults } from './OceanDetailedResults';
 export { OceanLiveDataStatus } from './OceanLiveDataStatus';
 export { OceanRecentFindings } from './OceanRecentFindings';
 export { OceanDataProvenance } from './OceanDataProvenance';
+export { OceanForecastAdvisory } from './OceanForecastAdvisory';

@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.schemas.evidence import EvidenceRecord
+from app.schemas.evidence import EvidenceRecord, Finding
 
 
 class MarineObservationPoint(BaseModel):
@@ -90,6 +90,7 @@ class OceanResearchResponse(BaseModel):
     stations: list[OceanStation]
     time_series: list[OceanTimeSeriesPoint]
     observations: list[OceanObservationRecord]
+    findings: list[Finding] = Field(default_factory=list)
     evidence: list[EvidenceRecord] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     data_nature: str

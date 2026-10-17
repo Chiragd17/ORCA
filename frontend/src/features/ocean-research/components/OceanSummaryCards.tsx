@@ -16,6 +16,12 @@ interface StatCardProps {
   loading: boolean;
 }
 
+function getCompassHeading(deg: number): string {
+  const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  const idx = Math.round((deg % 360) / 22.5);
+  return dirs[idx % 16];
+}
+
 const StatCard: React.FC<StatCardProps> = ({ icon, value, label, sublabel, color, loading }) => (
   <div className="p-3 rounded-xl bg-white border border-[#d8e4f0] shadow-2xs flex items-center gap-3">
     <div className={`p-2 rounded-lg ${color}`}>
@@ -74,7 +80,7 @@ export const OceanSummaryCards: React.FC<Props> = ({ summary, loading }) => {
           icon={<Compass className="w-4 h-4 text-purple-600" />}
           value={summary ? `${summary.current_velocity_mean.toFixed(2)} m/s` : '--'}
           label="Ocean Current Velocity"
-          sublabel={summary ? `Heading ${summary.current_direction_degrees.toFixed(0)}° WNW` : 'Hydrodynamic flow'}
+          sublabel={summary ? `Heading ${summary.current_direction_degrees.toFixed(0)}° ${getCompassHeading(summary.current_direction_degrees)}` : 'Hydrodynamic flow'}
           color="bg-purple-50"
           loading={loading}
         />

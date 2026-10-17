@@ -20,6 +20,7 @@ import {
   OceanLiveDataStatus,
   OceanRecentFindings,
   OceanDataProvenance,
+  OceanForecastAdvisory,
 } from './components';
 
 export const OceanResearchWorkspace: React.FC = () => {
@@ -112,10 +113,20 @@ export const OceanResearchWorkspace: React.FC = () => {
           }
           setEvidence(combinedEvidence);
 
-          // Combine findings from investigation and marine research
+          // Combine findings: strictly ensure oceanographic purity and filter out any coastal hazard contamination
+          const isOceanClaim = (claim: string) => {
+            const lower = (claim || '').toLowerCase();
+            return !lower.includes('settlement') &&
+              !lower.includes('healthcare') &&
+              !lower.includes('hospital') &&
+              !lower.includes('port/harbour facility') &&
+              !lower.includes('hazard footprint') &&
+              !lower.includes('residents across');
+          };
+
           const combinedFindings = [...(marineResponse.findings || [])];
           for (const f of invDetails.findings || []) {
-            if (!combinedFindings.some((existing) => existing.finding_id === f.finding_id)) {
+            if (isOceanClaim(f.claim) && !combinedFindings.some((existing) => (existing.finding_id && existing.finding_id === f.finding_id) || (existing.id && existing.id === f.id))) {
               combinedFindings.push(f);
             }
           }
@@ -217,6 +228,14 @@ export const OceanResearchWorkspace: React.FC = () => {
             />
           </div>
         </div>
+
+        {/* Forward Marine Forecast & Operational Vessel Advisory */}
+        <OceanForecastAdvisory
+          lat={activeParams.lat}
+          lon={activeParams.lon}
+          timeRange={activeParams.timeHorizon}
+          locationName={activeParams.sector === 'statewide' ? 'Karnataka Coastal Shelf' : activeParams.query}
+        />
 
         {/* Analytics Row - Scientific Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

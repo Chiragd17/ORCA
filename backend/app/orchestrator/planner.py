@@ -16,6 +16,9 @@ class InvestigationPlanner:
     @staticmethod
     def plan(workspace: str, query: str) -> List[str]:
         ws_clean = workspace.lower().replace("-", "_")
+        if ws_clean in ["marine_monitoring", "ocean_research"]:
+            return ["ocean_research", "evidence_verification"]
+
         base_agents = WORKSPACE_AGENT_ROUTING.get(ws_clean, ["ocean_research", "evidence_verification"])
         agents = list(base_agents)
 

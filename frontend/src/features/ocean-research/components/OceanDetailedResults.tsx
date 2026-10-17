@@ -442,7 +442,7 @@ export const OceanDetailedResults: React.FC<Props> = ({
               <p>
                 Thermal anomalies (&Delta;T_SST) are derived against a 30-year monthly climatology (1991–2020 ERA5 Reanalysis)
                 benchmarked specifically for the Arabian Sea Karnataka Shelf (12.5°N–15.0°N, 73.8°E–75.0°E).
-                Current seasonal baseline for October is <strong>29.20°C</strong>. Anomalies greater than +0.50°C indicate thermal surplus,
+                Current seasonal climatological baseline for {new Date().toLocaleString('en-US', { month: 'long' })} is approximately <strong>29.20°C</strong>. Anomalies greater than +0.50°C indicate thermal surplus,
                 while values below -0.50°C reflect wind-driven coastal upwelling.
               </p>
             </div>
