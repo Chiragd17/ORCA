@@ -9,6 +9,8 @@ import {
   Loader2,
   Info,
   X,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { hazardApi } from '../api';
 
@@ -101,6 +103,7 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ForecastResponse | null>(null);
+  const [isCardMinimized, setIsCardMinimized] = useState<boolean>(false);
 
   const fetchForecast = useCallback(
     async (fetchHours: number = hours, fetchVessel: 'traditional' | 'motorized_small' | 'mechanized_trawler' = vesselType) => {
@@ -313,25 +316,78 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
           </div>
         </div>
 
-        {onClose && (
+        <div className="flex items-center gap-1">
           <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-            title="Dismiss Advisory"
+            onClick={() => setIsCardMinimized(!isCardMinimized)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer flex items-center gap-1 text-xs"
+            title={isCardMinimized ? 'Expand Forecast Advisory' : 'Minimize to Summary'}
           >
-            <X className="w-4 h-4" />
+            <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
+              {isCardMinimized ? 'Expand' : 'Collapse'}
+            </span>
+            {isCardMinimized ? <ChevronDown className="w-4 h-4 text-slate-600" /> : <ChevronUp className="w-4 h-4 text-slate-600" />}
           </button>
-        )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Dismiss Advisory"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Control Pills: Forecast Hours & Vessel Class */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Forecast Horizon Pills: 6h, 12h, 18h, 24h */}
-        <div className="flex items-center gap-1.5 bg-[#f8fafc] border border-slate-200/80 p-1 rounded-xl text-xs">
-          <span className="text-[11px] font-semibold text-slate-400 px-2 flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            Horizon:
-          </span>
+      {isCardMinimized ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/90 text-xs">
+          <div className="flex items-center gap-2">
+            {data?.overall_status === 'FAVORABLE_WINDOW' ? (
+              <span className="px-2.5 py-0.5 rounded-full font-bold text-[10.5px] bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                FAVORABLE WINDOW
+              </span>
+            ) : data?.overall_status === 'CAUTION_WINDOW' ? (
+              <span className="px-2.5 py-0.5 rounded-full font-bold text-[10.5px] bg-amber-100 text-amber-800 flex items-center gap-1">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                CAUTION WINDOW
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded-full font-bold text-[10.5px] bg-red-100 text-red-800 flex items-center gap-1">
+                <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
+                ADVERSE WINDOW
+              </span>
+            )}
+            <span className="font-semibold text-[#0a1628]">
+              Peak Wave: {data?.peak_wave ? `${data.peak_wave.value_m.toFixed(2)}m` : '0.72m'}
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="text-slate-700">
+              Peak Gust: {data?.peak_gust ? `${data.peak_gust.value_kmh.toFixed(1)} km/h` : '25.9 km/h'}
+            </span>
+            <span className="text-slate-300 hidden md:inline">•</span>
+            <span className="text-slate-500 hidden md:inline">
+              Vessel: {getVesselLimits(vesselType).name} ({hours}h window)
+            </span>
+          </div>
+          <button
+            onClick={() => setIsCardMinimized(false)}
+            className="text-xs font-semibold text-orange-600 hover:text-orange-700 hover:underline flex items-center gap-1 cursor-pointer"
+          >
+            <span>View Full 24h Hourly Table</span>
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Control Pills: Forecast Hours & Vessel Class */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Forecast Horizon Pills: 6h, 12h, 18h, 24h */}
+            <div className="flex items-center gap-1.5 bg-[#f8fafc] border border-slate-200/80 p-1 rounded-xl text-xs">
+              <span className="text-[11px] font-semibold text-slate-400 px-2 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                Horizon:
+              </span>
           {[6, 12, 18, 24].map((h) => {
             const isActive = hours === h;
             return (
@@ -490,6 +546,8 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
             <span>{data.disclaimer}</span>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

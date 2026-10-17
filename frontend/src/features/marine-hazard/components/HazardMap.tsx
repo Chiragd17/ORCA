@@ -393,6 +393,7 @@ export const HazardMap: React.FC<Props> = ({
       minZoom: isKarnataka ? 4.8 : 3.5,
       maxZoom: 16,
       maxBounds: isKarnataka ? KARNATAKA_COAST_BOUNDS : undefined,
+      attributionControl: false,
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
@@ -568,7 +569,7 @@ export const HazardMap: React.FC<Props> = ({
     stationMarkersRef.current.forEach((m) => m.remove());
     stationMarkersRef.current = [];
 
-    activeStations.forEach((st, idx) => {
+    activeStations.forEach((st) => {
       const el = document.createElement('div');
       el.className = 'group cursor-pointer relative';
 
@@ -605,8 +606,7 @@ export const HazardMap: React.FC<Props> = ({
             : 'border-emerald-600';
       }
 
-      // Alternating left/right horizontal tag placement ensures 0% overlap between adjacent stations along coast
-      const isEven = idx % 2 === 0;
+      // Place station tag eastward into mainland (flex-row with ml-1.5) so labels are never clipped by the left map edge
       const shortName = st.name
         .replace(/Port|Wave Buoy|Wave Station|Marine Observatory|Lighthouse Marine Station|Coastal Observatory|Bar Marine Observatory|Deep Moored Swell Buoy|Deep Ocean Buoy|Marine Buoy/gi, '')
         .trim();
@@ -614,23 +614,29 @@ export const HazardMap: React.FC<Props> = ({
       const iconSymbol = st.stationType === 'buoy' ? '⚓' : st.stationType === 'bar_station' ? '⚠️' : '🌊';
 
       el.innerHTML = `
-        <div class="flex items-center ${isEven ? 'flex-row-reverse' : 'flex-row'} -translate-x-1/2 -translate-y-1/2 group transition-transform duration-200 hover:scale-110 hover:z-50">
+        <div class="flex items-center flex-row -translate-y-1/2 group transition-transform duration-200 hover:scale-110 hover:z-50 pointer-events-auto cursor-pointer">
           <div class="w-6 h-6 rounded-full bg-white border-2 ${discBorder} shadow-md flex items-center justify-center text-[11.5px] shrink-0 z-20 transition-all group-hover:ring-4 group-hover:ring-cyan-400/40">
             ${iconSymbol}
           </div>
-          <div class="${isEven ? 'mr-1.5' : 'ml-1.5'} flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/90 text-white shadow-md border ${badgeBorder} backdrop-blur-xs whitespace-nowrap z-10 transition-all">
+          <div class="ml-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/90 text-white shadow-md border ${badgeBorder} backdrop-blur-xs whitespace-nowrap z-10 transition-all">
             <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0"></span>
             <span class="font-mono font-bold text-[10.5px] ${badgeTextColor}">${metricBadge}</span>
-            <span class="text-[9px] font-medium text-slate-300 hidden sm:inline">${shortName}</span>
+            <span class="text-[9.5px] font-medium text-slate-300 hidden sm:inline">${shortName}</span>
           </div>
         </div>
       `;
 
-      const popup = new maplibregl.Popup({ offset: 16, closeButton: false }).setHTML(`
-        <div class="p-2.5 text-xs font-sans text-slate-800 space-y-1.5 min-w-[210px]">
-          <div class="font-bold text-[#0a1628] text-[13px] flex items-center justify-between">
+      const popup = new maplibregl.Popup({
+        offset: 16,
+        closeButton: true,
+        closeOnClick: false,
+        anchor: 'bottom',
+        maxWidth: '290px',
+      }).setHTML(`
+        <div class="p-3 text-xs font-sans text-slate-800 space-y-1.5 min-w-[210px]">
+          <div class="font-bold text-[#0a1628] text-[13px] flex items-center justify-between gap-2">
             <span>${st.name}</span>
-            <span class="text-[9.5px] px-1.5 py-0.5 rounded uppercase font-mono font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
+            <span class="text-[9.5px] px-1.5 py-0.5 rounded uppercase font-mono font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 shrink-0">
               ${st.stationType}
             </span>
           </div>
@@ -908,12 +914,38 @@ export const HazardMap: React.FC<Props> = ({
           </div>
         )}
 
-        {/* Bottom Legend Overlay with Minimize Toggle */}
+        {/* MapLibre Popup z-index elevation and styling */}
+        <style>{`
+          .maplibregl-popup {
+            z-index: 50 !important;
+          }
+          .maplibregl-popup-content {
+            border-radius: 14px !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.18), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+            border: 1px solid rgba(226, 232, 240, 0.95) !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+          }
+          .maplibregl-popup-close-button {
+            font-size: 16px !important;
+            padding: 4px 8px !important;
+            color: #64748b !important;
+            right: 4px !important;
+            top: 4px !important;
+            cursor: pointer !important;
+          }
+          .maplibregl-popup-close-button:hover {
+            color: #0f172a !important;
+            background: transparent !important;
+          }
+        `}</style>
+
+        {/* Bottom-Right Legend Overlay (Over inland Karnataka, 0% overlap with marine stations) with Minimize Toggle */}
         {legendMinimized ? (
           <button
             type="button"
             onClick={() => setLegendMinimized(false)}
-            className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs border border-slate-200/90 rounded-xl px-2.5 py-1.5 shadow-sm text-xs z-10 flex items-center gap-1.5 text-slate-700 hover:bg-slate-50 cursor-pointer pointer-events-auto"
+            className="absolute bottom-3 right-3 bg-white/95 backdrop-blur-xs border border-slate-200/90 rounded-xl px-2.5 py-1.5 shadow-md text-xs z-20 flex items-center gap-1.5 text-slate-700 hover:bg-slate-50 cursor-pointer pointer-events-auto"
             title="Expand Legend"
           >
             <Waves className="w-3.5 h-3.5 text-blue-600" />
@@ -927,7 +959,7 @@ export const HazardMap: React.FC<Props> = ({
             <ChevronUp className="w-3 h-3 text-slate-400" />
           </button>
         ) : (
-          <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs border border-slate-200/90 rounded-xl p-2.5 shadow-md text-xs space-y-1.5 z-10 pointer-events-auto max-w-[260px]">
+          <div className="absolute bottom-3 right-3 bg-white/95 backdrop-blur-xs border border-slate-200/90 rounded-xl p-2.5 shadow-md text-xs space-y-1.5 z-20 pointer-events-auto max-w-[260px]">
             <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-700">
               <span>
                 {activeLayer === 'waves'

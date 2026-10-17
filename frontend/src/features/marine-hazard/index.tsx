@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { Waves } from 'lucide-react';
 import { hazardApi } from './api';
 import {
   HazardEvent,
@@ -453,6 +454,36 @@ export const MarineHazardWorkspace: React.FC = () => {
           </div>
         )}
 
+        {/* Forward Marine Forecast & Operational Vessel Advisory - Primary Prominence */}
+        {forecastVisible ? (
+          <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+            <HazardForecastAdvisory
+              lat={activeParams.lat}
+              lon={activeParams.lon}
+              timeRange={activeParams.timeHorizon}
+              locationName={activeParams.presetName}
+              onClose={() => setForecastVisible(false)}
+            />
+          </div>
+        ) : (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-orange-50/60 border border-orange-200/80 text-xs text-orange-950 shadow-xs">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-orange-100 text-orange-700">
+                <Waves className="w-4 h-4" />
+              </div>
+              <span className="font-semibold text-slate-900">Forward Marine Forecast & Vessel Risk Advisory</span>
+              <span className="text-[11px] text-slate-500 hidden sm:inline">• Live ECMWF IFS Model feed minimized</span>
+            </div>
+            <button
+              onClick={() => setForecastVisible(true)}
+              className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-semibold transition cursor-pointer text-xs flex items-center gap-1.5 shadow-xs"
+            >
+              <Waves className="w-3.5 h-3.5" />
+              <span>Show Marine Forecast Advisory</span>
+            </button>
+          </div>
+        )}
+
         {/* Main Map + Summary Cards Row */}
         <div id="hazard-map-card" className="grid grid-cols-1 lg:grid-cols-5 gap-4 scroll-mt-4">
           <div className="lg:col-span-3">
@@ -519,19 +550,6 @@ export const MarineHazardWorkspace: React.FC = () => {
             />
           </div>
         </div>
-
-        {/* Forward Marine Forecast & Operational Vessel Advisory */}
-        {forecastVisible && (
-          <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-            <HazardForecastAdvisory
-              lat={activeParams.lat}
-              lon={activeParams.lon}
-              timeRange={activeParams.timeHorizon}
-              locationName={activeParams.presetName}
-              onClose={() => setForecastVisible(false)}
-            />
-          </div>
-        )}
 
         {/* Specialist Agent Chat Panel */}
         <HazardSpecialistChat
