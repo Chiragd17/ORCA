@@ -1,10 +1,19 @@
+import sys
+import asyncio
 from collections.abc import AsyncGenerator
+# pyrefly: ignore [missing-import]
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
 from app.core.config import settings
+
+if sys.platform == "win32":
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    except Exception:
+        pass
 
 # Normalize database URL for async psycopg driver if necessary
 database_url = settings.DATABASE_URL
