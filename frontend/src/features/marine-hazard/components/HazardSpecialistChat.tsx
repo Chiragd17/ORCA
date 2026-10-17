@@ -76,11 +76,19 @@ export const HazardSpecialistChat: React.FC<Props> = ({
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [showToolsIndex, setShowToolsIndex] = useState<string | null>(null);
-  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+    // Only scroll internally inside the chat panel when the user actively interacts
+    if (messages.length > 1 || loading) {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTo({
+          top: messagesContainerRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    }
+  }, [messages.length, loading]);
 
   const handleSend = async (userPrompt: string) => {
     const text = userPrompt.trim();
@@ -168,7 +176,7 @@ export const HazardSpecialistChat: React.FC<Props> = ({
       </div>
 
       {/* Message Body */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
+      <div ref={messagesContainerRef} className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
         {messages.map((m) => {
           const isUser = m.role === 'user';
           return (
@@ -255,7 +263,6 @@ export const HazardSpecialistChat: React.FC<Props> = ({
             <span className="italic">Specialist agent is selecting tools and analyzing hazard evidence...</span>
           </div>
         )}
-        <div ref={chatBottomRef} />
       </div>
 
       {/* Suggested Quick Prompt Pills */}

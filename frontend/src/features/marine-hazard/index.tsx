@@ -348,6 +348,7 @@ export const MarineHazardWorkspace: React.FC = () => {
 
   // Auto-run on mount
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     if (hasInitializedRef.current) return;
     hasInitializedRef.current = true;
 
