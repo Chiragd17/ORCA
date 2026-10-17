@@ -55,7 +55,8 @@ export const OrchestratorWorkspace: React.FC = () => {
       if (listRes) setInvestigations(listRes);
 
       // Determine which investigation to display
-      const targetId = selectId || (listRes && listRes.length > 0 ? listRes[0].investigation_id : null);
+      const paramId = searchParams.get('id');
+      const targetId = selectId || paramId || (listRes && listRes.length > 0 ? listRes[0].investigation_id : null);
       if (targetId) {
         const detail = await apiClient.get<EnrichedInvestigationDetail>(`/orchestrator/${targetId}`).catch(() => null);
         if (detail) {
@@ -77,7 +78,7 @@ export const OrchestratorWorkspace: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     loadData();
@@ -86,6 +87,10 @@ export const OrchestratorWorkspace: React.FC = () => {
   const handleSelectInvestigation = async (id: string) => {
     setLoading(true);
     try {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set('id', id);
+      setSearchParams(nextParams, { replace: true });
+
       const detail = await apiClient.get<EnrichedInvestigationDetail>(`/orchestrator/${id}`);
       if (detail) {
         setCurrentInvestigation({

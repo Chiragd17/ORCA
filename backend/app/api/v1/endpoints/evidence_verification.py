@@ -182,35 +182,58 @@ def _ensure_initial_verification_run(db: Session = None) -> VerificationRun:
     if latest:
         return latest
 
-    # Query existing database investigations and findings
     db_findings = []
-    db_evidence = []
+    evidence_records = []
+    seen_ev_ids = set()
+    latest_inv_id = None
+
     if db is not None:
         try:
-            db_findings = db.scalars(select(InvestigationFinding).limit(20)).all()
-            db_evidence = db.scalars(select(EvidenceRecordModel).limit(50)).all()
+            # 1. Fetch latest completed or partial investigation
+            latest_inv = db.scalars(
+                select(Investigation)
+                .where(Investigation.status.in_(["completed", "partial"]))
+                .order_by(desc(Investigation.created_at))
+            ).first()
+
+            if latest_inv:
+                latest_inv_id = latest_inv.id
+                db_findings = db.scalars(
+                    select(InvestigationFinding)
+                    .where(InvestigationFinding.investigation_id == latest_inv.id)
+                ).all()
+
+                if latest_inv.evidence:
+                    for ev in latest_inv.evidence:
+                        eid = ev.get("evidence_id") or ev.get("id")
+                        if eid and eid not in seen_ev_ids:
+                            seen_ev_ids.add(eid)
+                            evidence_records.append(EvidenceRecord(**ev))
+
+            # 2. Also load all stored evidence from EvidenceRecordModel
+            db_ev = db.scalars(select(EvidenceRecordModel).limit(100)).all()
+            for ev in db_ev:
+                if ev.id not in seen_ev_ids:
+                    seen_ev_ids.add(ev.id)
+                    evidence_records.append(EvidenceRecord(
+                        evidence_id=ev.id,
+                        id=ev.id,
+                        source_name=ev.source_identifier or "ORCA Marine Evidence Store",
+                        source_url=ev.source_url,
+                        source_identifier=ev.source_identifier,
+                        observation_time=ev.observation_time,
+                        retrieval_time=ev.retrieval_time,
+                        latitude=ev.latitude,
+                        longitude=ev.longitude,
+                        data_type=ev.data_type,
+                        raw_data=ev.raw_payload or {},
+                        dataset_metadata={"hash": ev.hash},
+                        hash=ev.hash,
+                    ))
         except Exception:
             db.rollback()
             db_findings = []
-            db_evidence = []
-
-    evidence_records = []
-    for ev in db_evidence:
-        evidence_records.append(EvidenceRecord(
-            evidence_id=ev.id,
-            id=ev.id,
-            source_name=ev.source_identifier or "ORCA Marine Evidence Store",
-            source_url=ev.source_url,
-            source_identifier=ev.source_identifier,
-            observation_time=ev.observation_time,
-            retrieval_time=ev.retrieval_time,
-            latitude=ev.latitude,
-            longitude=ev.longitude,
-            data_type=ev.data_type,
-            raw_data=ev.raw_payload or {},
-            dataset_metadata={"hash": ev.hash},
-            hash=ev.hash,
-        ))
+            evidence_records = []
 
     if not evidence_records:
         evidence_records = _get_default_evidence_records()
@@ -231,8 +254,9 @@ def _ensure_initial_verification_run(db: Session = None) -> VerificationRun:
     else:
         raw_claims = _get_default_raw_claims()
 
-    normalized = verification_engine.normalize_claims(raw_claims)
-    return verification_engine.verify_claims(normalized, evidence_records, run_id="vrun_baseline_orca_01")
+    run_id = f"vrun_{latest_inv_id}" if latest_inv_id else "vrun_baseline_orca_01"
+    normalized = verification_engine.normalize_claims(raw_claims, execution_id=latest_inv_id)
+    return verification_engine.verify_claims(normalized, evidence_records, run_id=run_id, investigation_id=latest_inv_id)
 
 
 @router.get("/summary")
@@ -262,15 +286,7 @@ def get_verification_summary(db: Session = Depends(get_db)) -> Dict[str, Any]:
         except Exception:
             db.rollback()
             db_evidence_count = 0
-    default_ev = _get_default_evidence_records()
-    examined_evidence_count = max(db_evidence_count, active_run.evidence_count if active_run else 0, len(default_ev))
-    if db is not None:
-        try:
-            db_evidence_count = db.query(EvidenceRecordModel).count()
-        except Exception:
-            db.rollback()
-            db_evidence_count = 0
-    examined_evidence_count = max(db_evidence_count, latest_run.evidence_count if latest_run else 0)
+    examined_evidence_count = max(db_evidence_count, active_run.evidence_count if active_run else 0)
 
     status_distribution = [
         {"name": "Matched", "value": matched_claims, "color": "#10b981"},
@@ -328,33 +344,54 @@ def create_verification_run(
     raw_evidence = payload.get("evidence")
 
     evidence_records: List[Any] = []
+    seen_ev_ids = set()
     if raw_evidence:
         for ev in raw_evidence:
+            eid = ev.get("evidence_id") if isinstance(ev, dict) else getattr(ev, "evidence_id", None)
+            if eid:
+                seen_ev_ids.add(eid)
             evidence_records.append(EvidenceRecord(**ev) if isinstance(ev, dict) else ev)
-    else:
-        db_ev = []
-        if db is not None:
-            try:
-                db_ev = db.scalars(select(EvidenceRecordModel).limit(100)).all()
-            except Exception:
-                db.rollback()
-                db_ev = []
-        for ev in db_ev:
-            evidence_records.append(EvidenceRecord(
-                evidence_id=ev.id,
-                id=ev.id,
-                source_name=ev.source_identifier or "ORCA Shared Store",
-                source_url=ev.source_url,
-                source_identifier=ev.source_identifier,
-                observation_time=ev.observation_time,
-                retrieval_time=ev.retrieval_time,
-                latitude=ev.latitude,
-                longitude=ev.longitude,
-                data_type=ev.data_type,
-                raw_data=ev.raw_payload or {},
-                dataset_metadata={"hash": ev.hash},
-                hash=ev.hash,
-            ))
+
+    target_inv = None
+    if db is not None:
+        try:
+            if inv_id:
+                target_inv = db.scalars(select(Investigation).where(Investigation.id == inv_id)).first()
+            else:
+                target_inv = db.scalars(
+                    select(Investigation)
+                    .where(Investigation.status.in_(["completed", "partial"]))
+                    .order_by(desc(Investigation.created_at))
+                ).first()
+
+            if target_inv and target_inv.evidence:
+                for ev in target_inv.evidence:
+                    eid = ev.get("evidence_id") or ev.get("id")
+                    if eid and eid not in seen_ev_ids:
+                        seen_ev_ids.add(eid)
+                        evidence_records.append(EvidenceRecord(**ev))
+
+            db_ev = db.scalars(select(EvidenceRecordModel).limit(100)).all()
+            for ev in db_ev:
+                if ev.id not in seen_ev_ids:
+                    seen_ev_ids.add(ev.id)
+                    evidence_records.append(EvidenceRecord(
+                        evidence_id=ev.id,
+                        id=ev.id,
+                        source_name=ev.source_identifier or "ORCA Shared Store",
+                        source_url=ev.source_url,
+                        source_identifier=ev.source_identifier,
+                        observation_time=ev.observation_time,
+                        retrieval_time=ev.retrieval_time,
+                        latitude=ev.latitude,
+                        longitude=ev.longitude,
+                        data_type=ev.data_type,
+                        raw_data=ev.raw_payload or {},
+                        dataset_metadata={"hash": ev.hash},
+                        hash=ev.hash,
+                    ))
+        except Exception:
+            db.rollback()
 
     if not evidence_records:
         evidence_records = _get_default_evidence_records()
@@ -363,8 +400,9 @@ def create_verification_run(
         db_findings = []
         if db is not None:
             try:
-                if inv_id:
-                    db_findings = db.scalars(select(InvestigationFinding).where(InvestigationFinding.investigation_id == inv_id)).all()
+                active_inv_id = inv_id or (target_inv.id if target_inv else None)
+                if active_inv_id:
+                    db_findings = db.scalars(select(InvestigationFinding).where(InvestigationFinding.investigation_id == active_inv_id)).all()
                 else:
                     db_findings = db.scalars(select(InvestigationFinding).limit(30)).all()
             except Exception:
@@ -387,11 +425,12 @@ def create_verification_run(
         else:
             raw_claims = _get_default_raw_claims()
 
-    normalized = verification_engine.normalize_claims(raw_claims, execution_id=inv_id)
+    exec_id = inv_id or (target_inv.id if target_inv else None)
+    normalized = verification_engine.normalize_claims(raw_claims, execution_id=exec_id)
     run_record = verification_engine.verify_claims(
         claims=normalized,
         evidence_records=evidence_records,
-        investigation_id=inv_id
+        investigation_id=exec_id
     )
 
     return run_record.model_dump()

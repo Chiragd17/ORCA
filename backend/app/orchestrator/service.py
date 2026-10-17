@@ -278,27 +278,45 @@ class OrchestratorService:
         discrepancies: List[Dict[str, Any]],
     ) -> str:
         """Assembles a coherent, evidence-aware final response preserving units, provenance, and uncertainty."""
+        def _format_metric_val(val: Any, unit: str) -> str:
+            if val is None:
+                return ""
+            try:
+                fv = float(val)
+                if fv.is_integer():
+                    formatted = f"{int(fv):,}"
+                else:
+                    formatted = f"{fv:.2f}".rstrip("0").rstrip(".")
+            except (ValueError, TypeError):
+                formatted = str(val)
+            return f"`{formatted} {unit}`".strip() if unit else f"`{formatted}`"
+
         lines = []
         lines.append(f"### Executive Intelligence Synthesis: {workspace.replace('_', ' ').title()}")
         lines.append(f"**Query:** {query}\n")
 
+        sec_num = 1
         # Key Findings by Specialist Domain
-        lines.append("#### 1. Specialist Observations & Findings")
+        lines.append(f"#### {sec_num}. Specialist Observations & Findings")
         if not findings:
             lines.append("- *No verified specialist findings were produced for this scope.*")
         else:
             for idx, f in enumerate(findings[:12], 1):
                 claim_text = getattr(f, "claim", None) or (f.get("claim") if isinstance(f, dict) else str(f))
+                claim_clean = claim_text.replace("C", "°C").replace("degC", "°C").strip()
                 val = getattr(f, "value", None) or (f.get("value") if isinstance(f, dict) else None)
                 unit = getattr(f, "unit", "") or (f.get("unit") if isinstance(f, dict) else "")
                 v_state = getattr(f, "verification_state", None) or getattr(f, "verification_status", None) or (f.get("verification_state") if isinstance(f, dict) else None) or (f.get("verification_status") if isinstance(f, dict) else "unverified")
                 
                 v_clean = _clean_state_str(v_state)
-                val_str = f" `{val} {unit}`" if val is not None and unit else (f" `{val}`" if val is not None else "")
-                lines.append(f"- **[Finding #{idx}]** {claim_text}{val_str} *(State: {v_clean})*")
+                val_formatted = _format_metric_val(val, unit)
+                val_raw_str = val_formatted.replace("`", "")
+                val_suffix = f" {val_formatted}" if val_formatted and val_raw_str not in claim_clean else ""
+                lines.append(f"- **[Finding #{idx}]** {claim_clean}{val_suffix} *(Status: {v_clean})*")
 
+        sec_num += 1
         # Evidence & Provenance
-        lines.append("\n#### 2. Evidence Integrity & Cryptographic Provenance")
+        lines.append(f"\n#### {sec_num}. Evidence Integrity & Cryptographic Provenance")
         lines.append(f"- **Total Evidence Records Ingested:** {len(evidence)}")
         if evidence:
             sources = set()
@@ -311,8 +329,9 @@ class OrchestratorService:
             if first_hash:
                 lines.append(f"- **Sample Cryptographic Hash:** `{first_hash[:16]}...` (SHA-256 Verified)")
 
+        sec_num += 1
         # Scientific Verification Outcome
-        lines.append("\n#### 3. Scientific Verification Audit")
+        lines.append(f"\n#### {sec_num}. Scientific Verification Audit")
         if verification_summary:
             raw_status = getattr(verification_summary, "overall_status", None) or (
                 verification_summary.get("overall_status") if isinstance(verification_summary, dict) else "VERIFIED"
@@ -344,14 +363,16 @@ class OrchestratorService:
         else:
             lines.append("- *Verification summary not available.*")
 
-        # Discrepancies & Material Conflicts
+        # Discrepancies & Material Conflicts (rendered only if present, keeping sequential numbers)
         if discrepancies:
-            lines.append("\n#### 4. Material Conflicts & Discrepancy Disclosures")
+            sec_num += 1
+            lines.append(f"\n#### {sec_num}. Material Conflicts & Discrepancy Disclosures")
             for d in discrepancies:
-                lines.append(f"- **Alert:** {d.get('description', 'Competing values detected')} (Action: {d.get('action', 'Investigate')})")
+                lines.append(f"- **Alert:** {d.get('description', 'Competing values detected')} *(Action: {d.get('action', 'Investigate')})*")
 
+        sec_num += 1
         # Operational Limitations & Safety
-        lines.append("\n#### 5. Operational Safety & Limitations")
+        lines.append(f"\n#### {sec_num}. Operational Safety & Limitations")
         if limitations:
             for lim in limitations[:5]:
                 lines.append(f"- {lim}")
@@ -365,6 +386,7 @@ class OrchestratorService:
         """Persists the investigation, findings, and events into PostgreSQL using SQLAlchemy."""
         from app.db.hazard_session import get_hazard_db
         from app.models import Investigation, InvestigationFinding, InvestigationEvent, EvidenceRecordModel
+        import hashlib
 
         try:
             db_gen = get_hazard_db()
@@ -444,6 +466,58 @@ class OrchestratorService:
                         details=jsonable_encoder(ev_details),
                     )
                     db.merge(event_model)
+
+                # 4. Persist Ingested Evidence Records into EvidenceRecordModel table
+                for ev in result.evidence:
+                    ev_id = (
+                        getattr(ev, "evidence_id", None)
+                        or getattr(ev, "id", None)
+                        or (ev.get("evidence_id") if isinstance(ev, dict) else None)
+                        or (ev.get("id") if isinstance(ev, dict) else None)
+                    )
+                    if not ev_id:
+                        continue
+                    source_ident = (
+                        getattr(ev, "source_identifier", None)
+                        or getattr(ev, "source_name", None)
+                        or (ev.get("source_identifier") if isinstance(ev, dict) else None)
+                        or (ev.get("source_name") if isinstance(ev, dict) else None)
+                        or "ORCA Marine Evidence Store"
+                    )
+                    source_url = getattr(ev, "source_url", None) or (ev.get("source_url") if isinstance(ev, dict) else None)
+                    obs_time = (
+                        getattr(ev, "observation_time", None)
+                        or (ev.get("observation_time") if isinstance(ev, dict) else None)
+                        or datetime.now(timezone.utc)
+                    )
+                    lat = getattr(ev, "latitude", None) or (ev.get("latitude") if isinstance(ev, dict) else None)
+                    lon = getattr(ev, "longitude", None) or (ev.get("longitude") if isinstance(ev, dict) else None)
+                    dt = getattr(ev, "data_type", None) or (ev.get("data_type") if isinstance(ev, dict) else "ocean_observation")
+                    raw_p = (
+                        getattr(ev, "raw_data", None)
+                        or getattr(ev, "raw_payload", None)
+                        or (ev.get("raw_data") if isinstance(ev, dict) else None)
+                        or (ev.get("raw_payload") if isinstance(ev, dict) else None)
+                        or {}
+                    )
+                    h = (
+                        getattr(ev, "hash", None)
+                        or (ev.get("hash") if isinstance(ev, dict) else None)
+                        or hashlib.sha256(str(raw_p).encode()).hexdigest()
+                    )
+
+                    ev_model = EvidenceRecordModel(
+                        id=str(ev_id),
+                        source_identifier=str(source_ident)[:256],
+                        source_url=str(source_url)[:1024] if source_url else None,
+                        observation_time=obs_time if isinstance(obs_time, datetime) else None,
+                        latitude=float(lat) if lat is not None else None,
+                        longitude=float(lon) if lon is not None else None,
+                        data_type=str(dt)[:64],
+                        raw_payload=jsonable_encoder(raw_p),
+                        hash=str(h)[:64],
+                    )
+                    db.merge(ev_model)
 
                 db.commit()
                 return "postgres_durable"

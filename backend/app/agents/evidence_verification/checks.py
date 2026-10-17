@@ -125,11 +125,25 @@ class VerificationCheckSuite:
             # If raw payload and expected hash exist, verify cryptographic match
             if stored_hash and raw_data:
                 try:
-                    payload_bytes = json.dumps(raw_data, sort_keys=True).encode("utf-8")
-                    calc_hash = hashlib.sha256(payload_bytes).hexdigest()
-                    payload_compact = json.dumps(raw_data, separators=(',', ':'), sort_keys=True).encode("utf-8")
-                    calc_compact = hashlib.sha256(payload_compact).hexdigest()
-                    if calc_hash != stored_hash and calc_compact != stored_hash:
+                    payload_variants = [raw_data]
+                    if isinstance(raw_data, dict):
+                        if "current" in raw_data and isinstance(raw_data["current"], dict):
+                            payload_variants.append(raw_data["current"])
+                        if "value" in raw_data and isinstance(raw_data["value"], dict):
+                            payload_variants.append(raw_data["value"])
+                        if "data" in raw_data and isinstance(raw_data["data"], dict):
+                            payload_variants.append(raw_data["data"])
+
+                    matched = False
+                    for variant in payload_variants:
+                        payload_bytes = json.dumps(variant, sort_keys=True).encode("utf-8")
+                        calc_hash = hashlib.sha256(payload_bytes).hexdigest()
+                        payload_compact = json.dumps(variant, separators=(',', ':'), sort_keys=True).encode("utf-8")
+                        calc_compact = hashlib.sha256(payload_compact).hexdigest()
+                        if calc_hash == stored_hash or calc_compact == stored_hash:
+                            matched = True
+                            break
+                    if not matched:
                         corrupted.append({"id": ev_id, "expected": stored_hash, "actual": calc_hash})
                 except Exception:
                     pass
@@ -405,22 +419,40 @@ class VerificationCheckSuite:
         incompatible = []
         for ev in evidence_records:
             ev_id = getattr(ev, "evidence_id", None) or getattr(ev, "id", "unknown")
-            ev_unit = getattr(ev, "unit", None)
-            if not ev_unit and hasattr(ev, "units") and isinstance(ev.units, dict):
-                ev_unit = next(iter(ev.units.values()), None)
-            if not ev_unit and hasattr(ev, "raw_data") and isinstance(ev.raw_data, dict):
-                ev_unit = ev.raw_data.get("unit")
+            candidate_units: List[str] = []
 
+            ev_unit = getattr(ev, "unit", None)
             if ev_unit:
-                norm_ev_unit = str(ev_unit).strip().lower()
-                ev_family = None
-                for fam, members in unit_families.items():
-                    if norm_ev_unit in members:
-                        ev_family = fam
+                if "," in str(ev_unit):
+                    candidate_units.extend([u.strip().lower() for u in str(ev_unit).split(",")])
+                else:
+                    candidate_units.append(str(ev_unit).strip().lower())
+
+            if hasattr(ev, "units") and isinstance(ev.units, dict):
+                for v in ev.units.values():
+                    if v:
+                        if "," in str(v):
+                            candidate_units.extend([u.strip().lower() for u in str(v).split(",")])
+                        else:
+                            candidate_units.append(str(v).strip().lower())
+
+            if hasattr(ev, "raw_data") and isinstance(ev.raw_data, dict):
+                ru = ev.raw_data.get("unit")
+                if ru:
+                    candidate_units.append(str(ru).strip().lower())
+
+            if candidate_units and claim_family:
+                has_matching_family = False
+                for cu in candidate_units:
+                    for fam, members in unit_families.items():
+                        if cu in members and fam == claim_family:
+                            has_matching_family = True
+                            break
+                    if has_matching_family:
                         break
 
-                if claim_family and ev_family and claim_family != ev_family:
-                    incompatible.append({"id": ev_id, "claim_unit": claim_unit, "evidence_unit": ev_unit})
+                if not has_matching_family:
+                    incompatible.append({"id": ev_id, "claim_unit": claim_unit, "evidence_unit": candidate_units[0]})
 
         if incompatible:
             return (

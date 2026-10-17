@@ -4,11 +4,12 @@ import {
   Activity,
   Database,
   Sparkles,
-  AlertTriangle,
   Layers,
 } from 'lucide-react';
 import { EnrichedInvestigationDetail } from '../types';
 
+
+import { ExecutiveSynthesisView } from './ExecutiveSynthesisView';
 
 interface Props {
   investigation: EnrichedInvestigationDetail;
@@ -104,34 +105,12 @@ export const InvestigationDetailView: React.FC<Props> = ({ investigation }) => {
       <div className="p-6">
         {/* Tab 1: Executive Synthesis */}
         {activeTab === 'synthesis' && (
-          <div className="space-y-4">
-            {investigation.discrepancies.length > 0 && (
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 space-y-1">
-                <div className="flex items-center gap-2 font-bold text-xs text-amber-900">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <span>Material Conflict Detected Across Feeds</span>
-                </div>
-                <p className="text-xs text-amber-700">
-                  {investigation.discrepancies[0].description}
-                </p>
-                <div className="text-[11px] text-amber-600 font-semibold">
-                  Action Taken: {investigation.discrepancies[0].action}
-                </div>
-              </div>
-            )}
-
-            <div className="prose prose-sm max-w-none text-slate-700 bg-slate-50/50 p-5 rounded-2xl border border-slate-200">
-              {investigation.final_answer ? (
-                <div className="whitespace-pre-wrap font-sans text-xs sm:text-sm leading-relaxed">
-                  {investigation.final_answer}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-slate-400 text-xs">
-                  Investigation synthesis in progress or unavailable.
-                </div>
-              )}
-            </div>
-          </div>
+          <ExecutiveSynthesisView
+            finalAnswer={investigation.final_answer || ''}
+            query={investigation.query}
+            workspace={investigation.workspace}
+            discrepancies={investigation.discrepancies || []}
+          />
         )}
 
         {/* Tab 2: Specialist Findings */}

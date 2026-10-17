@@ -35,41 +35,6 @@ interface DataModalsProps {
   onClose: () => void;
 }
 
-const HISTORICAL_INVESTIGATIONS = [
-  {
-    id: 'inv_tauktae_2021_risk_audit',
-    workspace: 'coastal-risk',
-    workspaceLabel: 'Coastal Impact & Risk',
-    query: 'Identify coastal settlements and population exposure during Cyclone Tauktae (5.8m waves)',
-    status: 'COMPLETED',
-    riskLevel: 'HIGH',
-    evidenceCount: 18,
-    date: 'Oct 15, 2026',
-    findingsSummary: '12 settlements within 25km buffer; estimated 499,487 population exposed; 200m seawall damage.',
-  },
-  {
-    id: 'inv_ullal_monsoon_surge',
-    workspace: 'coastal-authority',
-    workspaceLabel: 'Coastal Authority',
-    query: 'Assess sea wall breach and salt water ingress across Ullal & Bengre fishing hamlets',
-    status: 'COMPLETED',
-    riskLevel: 'MODERATE',
-    evidenceCount: 12,
-    date: 'Oct 14, 2026',
-    findingsSummary: 'High swell surges causing seawater ingress into residential spit hamlets; traditional fishing boats grounded.',
-  },
-  {
-    id: 'inv_arabian_sea_buoy_telemetry',
-    workspace: 'marine-monitoring',
-    workspaceLabel: 'Marine Monitoring',
-    query: 'Real-time wave height, period, and swell directional analysis offshore Mangaluru',
-    status: 'ACTIVE',
-    riskLevel: 'LOW',
-    evidenceCount: 8,
-    date: 'Live Stream',
-    findingsSummary: 'Significant wave height 0.62m, swell period 9.5s; all offshore navigation channels clear.',
-  },
-];
 
 const HISTORICAL_EVENTS = [
   {
@@ -164,6 +129,27 @@ export const DataModals: React.FC<DataModalsProps> = ({ activeModal, onClose }) 
     time: new Date().toLocaleTimeString(),
     loading: false,
   });
+
+  const [dbInvestigations, setDbInvestigations] = useState<any[]>([]);
+  const [loadingDbInvs, setLoadingDbInvs] = useState(false);
+
+  useEffect(() => {
+    if (activeModal === 'my_investigations' || activeModal === 'history') {
+      setLoadingDbInvs(true);
+      apiClient.get<any[]>('/orchestrator')
+        .then(res => {
+          if (Array.isArray(res)) {
+            setDbInvestigations(res);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to load my investigations:', err);
+        })
+        .finally(() => {
+          setLoadingDbInvs(false);
+        });
+    }
+  }, [activeModal]);
 
   const handleLaunchInvestigation = async () => {
     if (isSubmitting) return;
@@ -413,75 +399,107 @@ export const DataModals: React.FC<DataModalsProps> = ({ activeModal, onClose }) 
           {activeModal === 'my_investigations' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between text-[#64748b] text-[11px] pb-1 border-b border-[#e2e8f0]">
-                <span>Showing {HISTORICAL_INVESTIGATIONS.length} past case investigations & audit logs</span>
+                <span>
+                  Showing {dbInvestigations.length} live investigations from PostgreSQL
+                </span>
                 <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> All findings verified against PostgreSQL
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Synchronized with Recent Investigations
                 </span>
               </div>
 
-              <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
-                {HISTORICAL_INVESTIGATIONS.map(inv => (
-                  <div
-                    key={inv.id}
-                    className="p-3.5 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] hover:border-[#93c5fd] transition-all space-y-2"
+              {loadingDbInvs ? (
+                <div className="py-12 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                  <span>Loading investigations from PostgreSQL...</span>
+                </div>
+              ) : dbInvestigations.length === 0 ? (
+                <div className="py-10 text-center text-slate-400 text-xs">
+                  <p>No multi-agent investigations logged yet.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      navigate('/agents/orchestrator?launch=true');
+                    }}
+                    className="mt-2 text-blue-600 hover:underline font-semibold"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[11px] font-bold text-[#1e293b]">
-                            {inv.id}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                            {inv.workspaceLabel}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold ${
-                            inv.status === 'COMPLETED'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
-                          }`}>
-                            {inv.status}
+                    Launch a new investigation
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+                  {dbInvestigations.map((inv) => {
+                    const isPartial = inv.status === 'partial';
+                    const dateStr = inv.created_at
+                      ? new Date(inv.created_at).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : 'Recent';
+
+                    return (
+                      <div
+                        key={inv.investigation_id}
+                        className="p-3.5 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] hover:border-[#93c5fd] hover:bg-white transition-all space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono text-[11px] font-bold text-[#1e293b]">
+                                {inv.investigation_id}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                {inv.workspace}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold ${
+                                  isPartial
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                }`}
+                              >
+                                {isPartial ? 'PARTIAL' : 'COMPLETED'}
+                              </span>
+                            </div>
+                            <p className="text-[12px] font-semibold text-[#0f172a]">
+                              {inv.query}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              navigate(`/agents/orchestrator?id=${inv.investigation_id}`);
+                            }}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#0f172a] hover:bg-[#1e293b] text-white font-semibold text-[11px] transition-colors cursor-pointer flex-shrink-0 shadow-2xs"
+                          >
+                            <span>Open in Orchestrator</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1 text-[10.5px] text-[#64748b] border-t border-slate-100">
+                          <div className="flex items-center gap-3">
+                            <span>
+                              <strong>Findings:</strong> {inv.findings_count ?? 0}
+                            </span>
+                            <span>
+                              <strong>Timestamp:</strong> {dateStr}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            Durable PostgreSQL
                           </span>
                         </div>
-                        <p className="text-[12px] font-medium text-[#0f172a] mt-1">
-                          {inv.query}
-                        </p>
                       </div>
-
-                      <span className={`px-2 py-1 rounded-lg text-[10px] font-extrabold flex-shrink-0 ${
-                        inv.riskLevel === 'HIGH'
-                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                          : inv.riskLevel === 'MODERATE'
-                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      }`}>
-                        {inv.riskLevel} RISK
-                      </span>
-                    </div>
-
-                    <p className="text-[11px] text-[#475569] bg-white p-2 rounded-lg border border-[#f1f5f9] leading-relaxed">
-                      <strong>Executive Finding:</strong> {inv.findingsSummary}
-                    </p>
-
-                    <div className="flex items-center justify-between pt-1 text-[10px] text-[#64748b]">
-                      <div className="flex items-center gap-3">
-                        <span><strong>Evidence:</strong> {inv.evidenceCount} records</span>
-                        <span><strong>Timestamp:</strong> {inv.date}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onClose();
-                          navigate(`/${inv.workspace}`);
-                        }}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0f172a] hover:bg-[#1e293b] text-white font-medium text-[10.5px] transition-colors cursor-pointer"
-                      >
-                        <span>Open Workspace</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
           

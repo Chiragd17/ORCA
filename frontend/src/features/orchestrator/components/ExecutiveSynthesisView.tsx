@@ -1,0 +1,420 @@
+import React from 'react';
+import {
+  Sparkles,
+  ShieldCheck,
+  CheckCircle2,
+  AlertTriangle,
+  Database,
+  Layers,
+  Info,
+  Compass,
+} from 'lucide-react';
+
+interface ExecutiveSynthesisViewProps {
+  finalAnswer: string;
+  query?: string;
+  workspace?: string;
+  discrepancies?: any[];
+}
+
+interface ParsedFinding {
+  findingNum: string;
+  claim: string;
+  value?: string;
+  status: string;
+}
+
+interface ParsedSection {
+  number: string;
+  title: string;
+  rawContent: string[];
+}
+
+export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
+  finalAnswer,
+  query,
+  workspace,
+  discrepancies = [],
+}) => {
+  if (!finalAnswer || !finalAnswer.trim()) {
+    return (
+      <div className="text-center py-12 rounded-2xl bg-slate-50 border border-slate-200 text-slate-400 text-xs">
+        <Sparkles className="w-6 h-6 text-slate-300 mx-auto mb-2 animate-pulse" />
+        <p className="font-semibold text-slate-600">Executive Intelligence Synthesis in Progress</p>
+        <p className="text-[11px] text-slate-400 mt-0.5">
+          Specialist agents are collecting findings and verifying source evidence.
+        </p>
+      </div>
+    );
+  }
+
+  // Helper to format inline markdown like **bold**, *italic*, and `code`
+  const renderInlineFormatted = (text: string) => {
+    // Clean degree symbol artifacts or weird characters
+    const cleaned = text.replace(/\ufffd/g, '°');
+
+    // Split by markdown bold / code / italic
+    const parts = cleaned.split(/(\*\*.*?\*\*|`.*?`|\*.*?\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={i} className="font-bold text-slate-900">
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      if (part.startsWith('`') && part.endsWith('`')) {
+        return (
+          <code
+            key={i}
+            className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono text-[11px] border border-indigo-100 font-semibold"
+          >
+            {part.slice(1, -1)}
+          </code>
+        );
+      }
+      if (part.startsWith('*') && part.endsWith('*')) {
+        return (
+          <em key={i} className="italic text-slate-600">
+            {part.slice(1, -1)}
+          </em>
+        );
+      }
+      return part;
+    });
+  };
+
+  // Parse lines of finalAnswer into structured sections
+  const lines = finalAnswer.split('\n');
+  let detectedTitle = '';
+  let detectedQuery = query || '';
+  const sections: ParsedSection[] = [];
+  let currentSection: ParsedSection | null = null;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    // Detect Title
+    if (line.startsWith('### Executive Intelligence Synthesis:')) {
+      detectedTitle = line.replace('### Executive Intelligence Synthesis:', '').trim();
+      continue;
+    }
+    // Detect Query
+    if (line.startsWith('**Query:**')) {
+      detectedQuery = line.replace('**Query:**', '').trim();
+      continue;
+    }
+
+    // Detect Section Header (#### N. Title)
+    const secMatch = line.match(/^####\s+(\d+)\.\s+(.+)$/);
+    if (secMatch) {
+      if (currentSection) {
+        sections.push(currentSection);
+      }
+      currentSection = {
+        number: secMatch[1],
+        title: secMatch[2].trim(),
+        rawContent: [],
+      };
+      continue;
+    }
+
+    // Add content to current section or initial buffer
+    if (currentSection) {
+      currentSection.rawContent.push(line);
+    }
+  }
+  if (currentSection) {
+    sections.push(currentSection);
+  }
+
+  // Parse Findings from Section 1
+  const findingsSection = sections.find((s) =>
+    s.title.toLowerCase().includes('findings') || s.title.toLowerCase().includes('specialist observations')
+  );
+
+  const parsedFindings: ParsedFinding[] = [];
+  if (findingsSection) {
+    for (const item of findingsSection.rawContent) {
+      if (!item.startsWith('-')) continue;
+      const stripped = item.replace(/^-\s+/, '').trim();
+
+      // Extract finding number
+      const numMatch = stripped.match(/\[Finding\s+(#?\d+)\]/i);
+      const findingNum = numMatch ? numMatch[1] : `Finding`;
+
+      // Extract status: *(Status: VERIFIED)* or *(State: VERIFIED)*
+      const statusMatch = stripped.match(/\*\((?:Status|State):\s*([A-Za-z_]+)\)\*/i);
+      const status = statusMatch ? statusMatch[1].toUpperCase() : 'UNVERIFIED';
+
+      // Extract value in backticks if present
+      const valMatch = stripped.match(/`([^`]+)`/);
+      const value = valMatch ? valMatch[1] : undefined;
+
+      // Clean the claim text
+      let claimText = stripped
+        .replace(/\[Finding\s+#?\d+\]/i, '')
+        .replace(/\*\((?:Status|State):\s*[A-Za-z_]+\)\*/i, '')
+        .trim();
+
+      if (value) {
+        // Remove trailing value backtick block
+        claimText = claimText.replace(new RegExp('`' + value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '`'), '').trim();
+      }
+
+      parsedFindings.push({
+        findingNum,
+        claim: claimText,
+        value,
+        status,
+      });
+    }
+  }
+
+  // Parse Evidence Section
+  const evidenceSection = sections.find((s) =>
+    s.title.toLowerCase().includes('evidence') || s.title.toLowerCase().includes('provenance')
+  );
+
+  // Parse Verification Section
+  const verificationSection = sections.find((s) =>
+    s.title.toLowerCase().includes('verification') || s.title.toLowerCase().includes('audit')
+  );
+
+  // Parse Limitations Section
+  const limitationsSection = sections.find((s) =>
+    s.title.toLowerCase().includes('limitation') || s.title.toLowerCase().includes('safety')
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* 1. Header Banner */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-[#0a1628] via-[#162a45] to-[#1e3a5f] text-white shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-400/20">
+                <Sparkles className="w-4 h-4 text-indigo-300" />
+              </span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-200">
+                Executive Synthesis
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                {detectedTitle || workspace || 'Marine Intelligence'}
+              </span>
+            </div>
+            <h2 className="text-sm sm:text-base font-extrabold tracking-tight text-white">
+              Multi-Agent Investigation Briefing
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px] text-slate-300 font-mono bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 self-start sm:self-auto">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Deterministic Scientific Audit</span>
+          </div>
+        </div>
+
+        {detectedQuery && (
+          <div className="mt-3 pt-3 border-t border-white/10 flex items-start gap-2 text-xs text-slate-200 bg-white/5 p-2.5 rounded-xl">
+            <Compass className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <span className="font-semibold text-cyan-300">Target Query: </span>
+              <span>{detectedQuery}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Discrepancy Alert Banner */}
+      {discrepancies.length > 0 && (
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1">
+          <div className="flex items-center gap-2 font-bold text-xs text-amber-950">
+            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <span>Cross-Source Conflict Detected Across Competing Feeds</span>
+          </div>
+          <p className="text-xs text-amber-800 leading-relaxed">
+            {discrepancies[0]?.description || 'Feeds disagree beyond acceptable tolerance limits.'}
+          </p>
+          {discrepancies[0]?.action && (
+            <div className="text-[11px] text-amber-700 font-semibold mt-1">
+              Resolution Action: {discrepancies[0].action}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 2. Specialist Observations & Findings Section */}
+      {parsedFindings.length > 0 ? (
+        <div className="rounded-2xl border border-[#d8e4f0] bg-white p-4 space-y-3 shadow-2xs">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-indigo-600" />
+              <h3 className="text-xs font-bold text-slate-900">
+                1. Specialist Observations & Findings
+              </h3>
+            </div>
+            <span className="text-[10.5px] font-mono text-slate-500">
+              {parsedFindings.length} Claims Synthesized
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2.5">
+            {parsedFindings.map((f, idx) => {
+              const isVerified = f.status === 'VERIFIED' || f.status === 'MATCHED';
+              const isWarning = f.status === 'NEEDS_REVIEW' || f.status === 'CONFLICTING' || f.status === 'UNMET';
+
+              return (
+                <div
+                  key={idx}
+                  className="p-3 rounded-xl border border-slate-200 bg-[#fbfcfd] hover:border-indigo-200 hover:bg-white transition-all space-y-2"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        {f.findingNum.startsWith('#') ? f.findingNum : `#${f.findingNum}`}
+                      </span>
+                      <span
+                        className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                          isVerified
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : isWarning
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-slate-100 text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        {isVerified ? (
+                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                        ) : isWarning ? (
+                          <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
+                        ) : null}
+                        <span>{f.status}</span>
+                      </span>
+                    </div>
+
+                    {f.value && (
+                      <span className="px-2.5 py-1 rounded-lg bg-indigo-50/80 border border-indigo-100 text-indigo-900 font-extrabold text-xs font-mono flex-shrink-0">
+                        {f.value.replace(/\ufffd/g, '°')}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-slate-700 leading-relaxed font-normal">
+                    {renderInlineFormatted(f.claim)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {/* 3. Evidence Integrity & Verification Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Evidence Card */}
+        {evidenceSection && (
+          <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-2.5 shadow-2xs">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+              <Database className="w-4 h-4 text-blue-600" />
+              <h3 className="text-xs font-bold text-slate-900">
+                2. Evidence Integrity & Provenance
+              </h3>
+            </div>
+            <div className="space-y-2 text-xs text-slate-700">
+              {evidenceSection.rawContent.map((line, idx) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                  <span className="leading-relaxed">{renderInlineFormatted(line.replace(/^-\s+/, ''))}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Verification Audit Card */}
+        {verificationSection && (
+          <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-2.5 shadow-2xs">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <h3 className="text-xs font-bold text-slate-900">
+                3. Scientific Verification Audit
+              </h3>
+            </div>
+            <div className="space-y-2 text-xs text-slate-700">
+              {verificationSection.rawContent.map((line, idx) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />
+                  <span className="leading-relaxed">{renderInlineFormatted(line.replace(/^-\s+/, ''))}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 4. Operational Safety & Limitations Card */}
+      {limitationsSection && (
+        <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs">
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+            <Info className="w-4 h-4 text-amber-600" />
+            <h3 className="text-xs font-bold text-slate-900">
+              {limitationsSection.number}. Operational Safety & Scientific Limitations
+            </h3>
+          </div>
+
+          <div className="space-y-2">
+            {limitationsSection.rawContent.map((line, idx) => {
+              const cleanLine = line.replace(/^-\s+/, '');
+              const isWarning = cleanLine.includes('Official Warning:') || cleanLine.includes('IMD') || cleanLine.includes('INCOIS');
+
+              if (isWarning) {
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5 mt-2"
+                  >
+                    <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="leading-relaxed">
+                      {renderInlineFormatted(cleanLine)}
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={idx} className="flex items-start gap-2 text-xs text-slate-600 leading-relaxed">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-1.5 flex-shrink-0" />
+                  <span>{renderInlineFormatted(cleanLine)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Any remaining unparsed sections fallback */}
+      {sections
+        .filter(
+          (s) =>
+            s !== findingsSection &&
+            s !== evidenceSection &&
+            s !== verificationSection &&
+            s !== limitationsSection
+        )
+        .map((sec, idx) => (
+          <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-white space-y-2 shadow-2xs">
+            <h4 className="text-xs font-bold text-slate-900">
+              {sec.number}. {sec.title}
+            </h4>
+            <div className="space-y-1.5 text-xs text-slate-700">
+              {sec.rawContent.map((line, lIdx) => (
+                <p key={lIdx} className="leading-relaxed">
+                  {renderInlineFormatted(line)}
+                </p>
+              ))}
+            </div>
+          </div>
+        ))}
+    </div>
+  );
+};
