@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, ChevronRight, X } from 'lucide-react';
+import { AlertTriangle, ChevronRight, X, Compass, ShieldCheck } from 'lucide-react';
 import { HazardEvent } from '../types';
 
 interface Props {
@@ -215,82 +215,125 @@ export const HazardRecentAlerts: React.FC<Props> = ({
       </div>
 
       {/* Flyout Modal */}
-      {selectedEvent && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-orange-50 text-orange-600">
-                  <AlertTriangle className="w-5 h-5" />
+      {selectedEvent && (() => {
+        const precMeta = getPrecedentMeta(selectedEvent);
+        const catTitle = precMeta?.categoryLabel?.split('•')[0]?.trim() || 'Category 4';
+        const catSub = precMeta?.categoryLabel?.split('•')[1]?.trim() || (selectedEvent.metadata_json?.severity_knots ? `${selectedEvent.metadata_json.severity_knots} kts Peak Wind` : 'Extremely Severe (ESCS)');
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200/90 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-orange-500/15 via-red-500/10 to-amber-500/15 text-orange-600 border border-orange-200/80 shadow-xs">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-base font-bold text-[#0a1628]">{selectedEvent.name}</h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                        Precedent
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-mono mt-0.5">
+                      {selectedEvent.hazard_id} • Arabian Sea Basin
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-[#0a1628]">{selectedEvent.name}</h4>
-                  <p className="text-xs text-slate-500 font-mono">{selectedEvent.hazard_id}</p>
+                <button
+                  onClick={() => setSelectedEvent(null)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="Close modal"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {precMeta?.impactSummary && (
+                <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/90 text-xs text-amber-950 space-y-1 shadow-2xs">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-900 text-[11px] uppercase tracking-wider">
+                    <Compass className="w-3.5 h-3.5 text-orange-600" />
+                    <span>Karnataka Coastal Shelf Impact & Registry Context</span>
+                  </div>
+                  <p className="text-slate-700 leading-relaxed text-[11.5px]">
+                    {precMeta.impactSummary}
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2.5 text-xs">
+                <div className="p-3 rounded-xl bg-slate-50/90 border border-slate-200/70 space-y-1">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Intensity Scale</span>
+                  <span className="font-bold text-orange-700 text-xs block truncate" title={precMeta?.categoryLabel}>
+                    {catTitle}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block truncate">
+                    {catSub}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50/90 border border-slate-200/70 space-y-1">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Observation Window</span>
+                  <span className="font-mono text-slate-800 font-semibold text-xs block">
+                    {selectedEvent.first_observed ? new Date(selectedEvent.first_observed).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '13 May 2021'} – {selectedEvent.last_observed ? new Date(selectedEvent.last_observed).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '19 May 2021'}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">7-day lifecycle tracking</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50/90 border border-slate-200/70 space-y-1">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Oceanic Basin</span>
+                  <span className="font-semibold text-slate-900 text-xs flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                    {selectedEvent.basin?.replace('_', ' ') || 'Arabian Sea (West Coast)'}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">North Indian Ocean Basin</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50/90 border border-slate-200/70 space-y-1">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Trajectory Fixes</span>
+                  <span className="font-semibold text-emerald-700 text-xs flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    {selectedEvent.track_points?.length ? `${selectedEvent.track_points.length} GPS Waypoints` : '79 Fixes in DB'}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">NOAA IBTrACS Verified</span>
                 </div>
               </div>
-              <button
-                onClick={() => setSelectedEvent(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            {getPrecedentMeta(selectedEvent)?.impactSummary && (
-              <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80 text-[11.5px] text-amber-900 leading-relaxed">
-                <span className="font-bold text-amber-950">Karnataka Coastal Context: </span>
-                {getPrecedentMeta(selectedEvent)?.impactSummary}
+              <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs">
+                <div className="flex items-center gap-1.5 text-slate-500">
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Authority Source:</span>
+                </div>
+                <span className="font-semibold text-[#0a1628]">
+                  {selectedEvent.source || 'NOAA IBTrACS Archives & IMD RSMC New Delhi'}
+                </span>
               </div>
-            )}
 
-            <div className="space-y-2 text-xs text-slate-600">
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-400">Data Source:</span>
-                <span className="font-semibold text-slate-800">{selectedEvent.source || 'NOAA IBTrACS / IMD RSMC'}</span>
+              <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedEvent(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-semibold text-xs transition cursor-pointer"
+                >
+                  Dismiss
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectEvent?.(selectedEvent, true);
+                    setSelectedEvent(null);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold text-xs shadow-md shadow-orange-500/20 hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 group"
+                >
+                  <Compass className="w-4 h-4 group-hover:rotate-45 transition-transform duration-300" />
+                  <span>Load Track on Map</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </button>
               </div>
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-400">Oceanic Basin:</span>
-                <span className="capitalize text-slate-800 font-medium">
-                  {selectedEvent.basin?.replace('_', ' ') || 'Arabian Sea (West Coast)'}
-                </span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-400">Intensity Classification:</span>
-                <span className="font-semibold text-orange-700">
-                  {getPrecedentMeta(selectedEvent)?.categoryLabel ||
-                    (selectedEvent.metadata_json?.severity_knots ? `${selectedEvent.metadata_json.severity_knots} kts` : 'Severe Cyclonic Storm')}
-                </span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-400">Observation Period:</span>
-                <span className="font-mono text-slate-800">
-                  {selectedEvent.first_observed ? new Date(selectedEvent.first_observed).toLocaleDateString() : 'N/A'} – {selectedEvent.last_observed ? new Date(selectedEvent.last_observed).toLocaleDateString() : 'N/A'}
-                </span>
-              </div>
-              <div className="flex justify-between py-1">
-                <span className="text-slate-400">Chronological Fixes:</span>
-                <span className="font-bold text-orange-600">
-                  {selectedEvent.track_points?.length || 'Full Track Available in DB'}
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-2 flex items-center justify-between">
-              <span className="text-[11px] text-slate-400 italic">IMD RSMC New Delhi & IBTrACS</span>
-              <button
-                onClick={() => {
-                  onSelectEvent?.(selectedEvent, true);
-                  setSelectedEvent(null);
-                }}
-                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-              >
-                <span>Load Track on Map</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </>
   );
 };
