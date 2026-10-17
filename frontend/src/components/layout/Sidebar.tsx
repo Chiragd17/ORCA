@@ -50,6 +50,14 @@ const AGENTS: AgentItem[] = [
     isLive: true,
   },
   {
+    id: 'marine-hazard-agent',
+    label: 'Marine Hazard & Forecast',
+    path: '/agents/marine-hazard',
+    icon: AlertTriangle,
+    iconColor: 'text-[#ea580c]',
+    isLive: true,
+  },
+  {
     id: 'coastal-risk-agent',
     label: 'Coastal Impact & Risk',
     path: '/agents/coastal-risk',

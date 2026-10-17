@@ -61,6 +61,8 @@ class Finding(BaseModel):
     evidence_ids: List[str] = Field(default_factory=list, description="List of supporting evidence record IDs")
     uncertainty: Optional[str] = Field(None, description="Uncertainty bounds or methodological limitations")
     is_forecast: bool = Field(False, description="Whether this finding is a forecast vs historical observation")
+    observation_time: Optional[datetime] = Field(None, description="Timestamp of observation or event")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Arbitrary domain metadata")
     verification_state: VerificationState = Field(VerificationState.UNVERIFIED, description="Verification status")
     verification_status: Optional[Any] = Field(None, description="Alternative alias for verification_state")
 
@@ -102,3 +104,8 @@ class BaseAgent(ABC):
     async def run(self, task: InvestigationTask) -> AgentResult:
         """Execute agent analysis for the given investigation task."""
         pass
+
+
+# Alias for cross-specialist consistency
+SpecialistAgent = BaseAgent
+

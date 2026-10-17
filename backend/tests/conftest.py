@@ -23,3 +23,12 @@ def event_loop():
         loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture
+def client():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    with TestClient(app) as test_client:
+        yield test_client
+

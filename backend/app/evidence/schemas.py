@@ -28,7 +28,7 @@ class EvidenceRecord(BaseModel):
     retrieval_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Retrieval time in UTC")
     latitude: Optional[float] = Field(None, description="WGS84 latitude")
     longitude: Optional[float] = Field(None, description="WGS84 longitude")
-    data_type: str = Field(..., description="Category: sst, wave_height, wind_speed, cyclone_track, population")
+    data_type: str = Field(default="marine_observation", description="Category: sst, wave_height, wind_speed, cyclone_track, population")
     raw_data: Dict[str, Any] = Field(default_factory=dict, description="Raw provider payload or subset")
     units: Dict[str, str] = Field(default_factory=dict, description="Measurement units mapping")
     dataset_metadata: Dict[str, Any] = Field(default_factory=dict, alias="metadata", description="Dataset version, model, resolution")
@@ -42,6 +42,10 @@ class EvidenceRecord(BaseModel):
     @classmethod
     def _unify_fields(cls, data: Any) -> Any:
         if isinstance(data, dict):
+            # Ensure data_type has a value
+            if not data.get("data_type"):
+                data["data_type"] = data.get("variable") or "marine_observation"
+
             # Map id -> evidence_id
             if "id" in data and "evidence_id" not in data:
                 data["evidence_id"] = data["id"]

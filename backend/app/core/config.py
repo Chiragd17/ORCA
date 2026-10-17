@@ -34,23 +34,48 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = "postgresql+psycopg://orca_user:orca_password@localhost:5432/orca_db"
+    HAZARD_DATABASE_URL: str = "postgresql+psycopg://orca:orca@localhost:5432/orca_db_person2"
+    DB_ECHO: bool = False
 
     # LLM Providers
     GROQ_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
+    DEFAULT_LLM_PROVIDER: str = "groq"
 
-    # Default LLM Models
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
-    GEMINI_MODEL: str = "gemini-1.5-pro"
+    # Default LLM Models & Settings
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_FALLBACK_MODEL: str = "qwen/qwen3.8-27b"
+    GEMINI_MODEL: str = "gemini-flash-latest"
     OPENROUTER_MODEL: str = "anthropic/claude-3.5-sonnet"
+    LLM_TEMPERATURE: float = 0.1
+    LLM_TIMEOUT_SECONDS: int = 30
 
-    # External Provider Defaults
+    # External Provider Defaults & Timeouts
     OPEN_METEO_BASE_URL: str = "https://marine-api.open-meteo.com/v1/marine"
     GDACS_FEED_URL: str = "https://www.gdacs.org/xml/rss.xml"
+    EXTERNAL_REQUEST_TIMEOUT_SECONDS: int = 20
+    DATA_DIR: str = "data"
+
+    # Provider Freshness Thresholds (Hours)
+    GDACS_FRESHNESS_HOURS: int = 6
+    OPEN_METEO_FRESHNESS_HOURS: int = 12
+    NOAA_NHC_FRESHNESS_HOURS: int = 6
+
+    # Provider Retry & Resilience Parameters
+    MAX_PROVIDER_RETRIES: int = 2
+    RETRY_BASE_DELAY_SECONDS: float = 0.5
+    MAX_RETRY_DELAY_SECONDS: float = 5.0
+
+    _backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    _project_dir = os.path.dirname(_backend_dir)
 
     model_config = SettingsConfigDict(
-        env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
+        env_file=(
+            os.path.join(_project_dir, ".env"),
+            os.path.join(_backend_dir, ".env"),
+            ".env",
+        ),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",

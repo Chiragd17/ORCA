@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.logging import logger
 from app.schemas.evidence import EvidenceRecord
 from app.schemas.marine import MarineObservationPoint
+from app.providers.data.open_meteo_hazard import NormalizedMarineForecastPoint
 
 
 def to_utc_datetime(dt_val: datetime | str | None) -> datetime | None:

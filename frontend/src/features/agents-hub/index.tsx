@@ -19,35 +19,6 @@ export const AgentsHub: React.FC = () => {
 
   const agents = [
     {
-      id: 'coastal-risk',
-      title: 'Coastal Impact & Risk Agent',
-      assignedRole: 'Person 3',
-      status: 'LIVE',
-      statusColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-      statusDot: 'bg-emerald-500',
-      icon: Waves,
-      iconGradient: 'from-blue-600 to-cyan-600',
-      badge: 'Production Ready',
-      description:
-        'Analyzes spatial exposure and vulnerability for coastal settlements, critical infrastructure, and ports across 320km of Karnataka coastline.',
-      keyCapabilities: [
-        'Deterministic Haversine geodesic distance & polygon intersection math',
-        'Ingests 36 verified coastal features across Dakshina Kannada, Udupi & Uttara Kannada',
-        'Official Census of India 2011 population exposure summation (1.07M residents)',
-        'Live real-time marine wave observation via Open-Meteo Marine API',
-        'Historical IMD / INCOIS cyclone surge models (Cyclone Tauktae 5.8m waves)',
-      ],
-      targetWorkspaces: ['Coastal Risk Workspace', 'Coastal Authority', 'Disaster Management'],
-      stats: [
-        { label: 'Coverage', value: '320 km Coastline' },
-        { label: 'Settlements', value: '19 Towns' },
-        { label: 'Monitored Pop', value: '1,075,668' },
-        { label: 'Ports / Bases', value: '9 Facilities' },
-      ],
-      isInteractive: true,
-      route: '/agents/coastal-risk',
-    },
-    {
       id: 'ocean-research',
       title: 'Ocean Intelligence & Research Agent',
       assignedRole: 'Person 1',
@@ -80,29 +51,59 @@ export const AgentsHub: React.FC = () => {
       id: 'marine-hazard',
       title: 'Marine Hazard & Forecast Agent',
       assignedRole: 'Person 2',
-      status: 'SCAFFOLD / READY',
-      statusColor: 'bg-amber-100 text-amber-800 border-amber-300',
-      statusDot: 'bg-amber-500',
+      status: 'LIVE',
+      statusColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      statusDot: 'bg-emerald-500',
       icon: AlertTriangle,
       iconGradient: 'from-orange-600 to-red-600',
-      badge: 'Integration Scaffold',
+      badge: 'Production Ready',
       description:
         'Processes tropical cyclones, gale wind gusts, high-swell surges, and disaster alerts using official meteorological feeds.',
       keyCapabilities: [
-        'IBTrACS historical tropical cyclone tracks & playback structures',
+        'IBTrACS historical tropical cyclone tracks & playback structures (1,865 storms)',
         'GDACS real-time international disaster alerts & flood impact polygons',
-        'Gale-force wind gust and extreme wave height threshold exceedance alerts',
-        'Track cone projection & estimated landfall time calculations',
-        'Identification of stale or missing marine hazard forecast grids',
+        'Douglas Sea State classification & significant wave height threshold evaluation',
+        'NOAA NHC 5-day future track waypoints & predicted trajectory runs',
+        'Specialist conversational agent with autonomous tool execution loop',
       ],
       targetWorkspaces: ['Disaster Management', 'Coastal Authority', 'Fisherman Advisory'],
       stats: [
-        { label: 'Storm Registry', value: 'IBTrACS / GDACS' },
-        { label: 'Basin', value: 'North Indian Ocean' },
+        { label: 'Storm Registry', value: '1,865 Cyclones' },
+        { label: 'Track Fixes', value: '62,874 Points' },
         { label: 'Precedents', value: 'Tauktae, Ockhi' },
-        { label: 'Hazard Thresholds', value: 'Wind & Waves' },
+        { label: 'Wave Model', value: 'ECMWF IFS 7-Day' },
       ],
-      isInteractive: false,
+      isInteractive: true,
+      route: '/agents/marine-hazard',
+    },
+    {
+      id: 'coastal-risk',
+      title: 'Coastal Impact & Risk Agent',
+      assignedRole: 'Person 3',
+      status: 'LIVE',
+      statusColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      statusDot: 'bg-emerald-500',
+      icon: Waves,
+      iconGradient: 'from-blue-600 to-cyan-600',
+      badge: 'Production Ready',
+      description:
+        'Analyzes spatial exposure and vulnerability for coastal settlements, critical infrastructure, and ports across 320km of Karnataka coastline.',
+      keyCapabilities: [
+        'Deterministic Haversine geodesic distance & polygon intersection math',
+        'Ingests 36 verified coastal features across Dakshina Kannada, Udupi & Uttara Kannada',
+        'Official Census of India 2011 population exposure summation (1.07M residents)',
+        'Live real-time marine wave observation via Open-Meteo Marine API',
+        'Historical IMD / INCOIS cyclone surge models (Cyclone Tauktae 5.8m waves)',
+      ],
+      targetWorkspaces: ['Coastal Risk Workspace', 'Coastal Authority', 'Disaster Management'],
+      stats: [
+        { label: 'Coverage', value: '320 km Coastline' },
+        { label: 'Settlements', value: '19 Towns' },
+        { label: 'Monitored Pop', value: '1,075,668' },
+        { label: 'Ports / Bases', value: '9 Facilities' },
+      ],
+      isInteractive: true,
+      route: '/agents/coastal-risk',
     },
     {
       id: 'evidence-verification',
@@ -163,7 +164,7 @@ export const AgentsHub: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-800 text-xs text-emerald-300">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span><strong>Ocean Research & Coastal Risk</strong> Live</span>
+              <span><strong>Person 1, 2 & 3 Specialist Agents</strong> Live</span>
             </div>
           </div>
         </div>

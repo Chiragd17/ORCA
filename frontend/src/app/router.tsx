@@ -9,6 +9,7 @@ import { CoastalRiskWorkspace } from '../features/coastal-risk';
 import { AgentsHub } from '../features/agents-hub';
 
 import { OceanResearchWorkspace } from '../features/ocean-research';
+import { MarineHazardWorkspace } from '../features/marine-hazard';
 
 export const router = createBrowserRouter([
   {
@@ -24,12 +25,24 @@ export const router = createBrowserRouter([
         element: <AgentsHub />,
       },
       {
+        path: 'agents/ocean-research',
+        element: <OceanResearchWorkspace />,
+      },
+      {
+        path: 'agents/marine-hazard',
+        element: <MarineHazardWorkspace />,
+      },
+      {
         path: 'agents/coastal-risk',
         element: <CoastalRiskWorkspace />,
       },
       {
-        path: 'agents/ocean-research',
-        element: <OceanResearchWorkspace />,
+        path: 'ocean-research',
+        element: <Navigate to="/agents/ocean-research" replace />,
+      },
+      {
+        path: 'marine-hazard',
+        element: <Navigate to="/agents/marine-hazard" replace />,
       },
       {
         path: 'coastal-risk',
