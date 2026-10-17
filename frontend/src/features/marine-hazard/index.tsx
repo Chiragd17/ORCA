@@ -432,6 +432,9 @@ export const MarineHazardWorkspace: React.FC = () => {
               centerLat={activeParams.lat}
               centerLon={activeParams.lon}
               sectorName={activeParams.presetName}
+              radiusKm={activeParams.radiusKm}
+              significantWaveHeight={significantWaveHeight}
+              douglasState={douglasState}
             />
           </div>
           <div className="lg:col-span-2 space-y-4">
