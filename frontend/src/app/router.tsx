@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { FishermanWorkspace } from '../features/fisherman';
+import { MarineMonitoringWorkspace } from '../features/marine-monitoring';
 import { ProtectedAreasWorkspace } from '../features/protected-areas';
 import { CoastalAuthorityWorkspace } from '../features/coastal-authority';
 import { DisasterManagementWorkspace } from '../features/disaster-management';
@@ -40,7 +41,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'marine-monitoring',
-        element: <OceanResearchWorkspace />,
+        element: <MarineMonitoringWorkspace />,
       },
       {
         path: 'protected-areas',

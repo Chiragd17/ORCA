@@ -12,6 +12,7 @@ import {
   Radio,
   Database as DbIcon,
   Settings,
+  Sparkles,
 } from 'lucide-react';
 import { ModalType } from './DataModals';
 
@@ -39,6 +40,14 @@ const AGENTS: AgentItem[] = [
     path: '/agents',
     icon: Bot,
     iconColor: 'text-[#2563eb]',
+  },
+  {
+    id: 'ocean-research-agent',
+    label: 'Ocean Intelligence & Research',
+    path: '/agents/ocean-research',
+    icon: Sparkles,
+    iconColor: 'text-[#0d9488]',
+    isLive: true,
   },
   {
     id: 'coastal-risk-agent',
