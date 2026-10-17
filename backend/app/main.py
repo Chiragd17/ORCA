@@ -36,13 +36,15 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Health endpoint (at root /health)
+# Health endpoint (at root /health and /api/v1/health)
 app.include_router(health_router)
+app.include_router(health_router, prefix="/api/v1")
 
 # Mount API v1
 app.include_router(api_router, prefix="/api/v1")
