@@ -10,3 +10,4 @@ export * from './RecentFindings';
 export * from './DataProvenance';
 export * from './DetailedResults';
 export * from './RiskLevelBadge';
+export * from './VoyageForecastAdvisory';

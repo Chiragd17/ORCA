@@ -6,11 +6,24 @@ interface Props {
   loading: boolean;
 }
 
-const TIME_RANGES = [
-  { value: 'last24h', label: 'Last 24 hours (Live Baseline)' },
-  { value: 'last7d', label: 'Last 7 days (Weekly Swell)' },
-  { value: 'last30d', label: 'Last 30 days (Monthly Tide)' },
-  { value: 'historical', label: 'Historical (Cyclone Surge)' },
+export const TIME_RANGE_GROUPS = [
+  {
+    group: 'Forward Forecast (Voyage Decision Support)',
+    options: [
+      { value: 'next12h', label: 'Next 12 Hours (Immediate Voyage Forecast)', isForecast: true, hours: 12 },
+      { value: 'next24h', label: 'Next 24 Hours (Daily Fishing Window)', isForecast: true, hours: 24 },
+      { value: 'next48h', label: 'Next 48 Hours (Extended Marine Outlook)', isForecast: true, hours: 48 },
+    ],
+  },
+  {
+    group: 'Historical Baseline (Observational)',
+    options: [
+      { value: 'last24h', label: 'Last 24 hours (Live Baseline)', isForecast: false },
+      { value: 'last7d', label: 'Last 7 days (Weekly Swell)', isForecast: false },
+      { value: 'last30d', label: 'Last 30 days (Monthly Tide)', isForecast: false },
+      { value: 'historical', label: 'Historical (Cyclone Surge Precedent)', isForecast: false },
+    ],
+  },
 ];
 
 const RANGE_OPTIONS = [
@@ -90,6 +103,14 @@ export const InvestigationControls: React.FC<Props> = ({ onRunAnalysis, loading 
   };
 
   const buildQuery = (locStr: string, rad: number, tr: string, isKar: boolean) => {
+    if (tr === 'next12h') {
+      return `Forward 12h marine forecast: evaluate hourly wave height, swell period, and wind gust thresholds within ${rad}km of ${locStr} for immediate fishing voyage decision support.`;
+    } else if (tr === 'next24h') {
+      return `Forward 24h marine forecast: evaluate daily fishing safety window, peak wave timing, and squall risk within ${rad}km of ${locStr}.`;
+    } else if (tr === 'next48h') {
+      return `Forward 48h marine outlook: evaluate multi-day sea state, deep-sea swell evolution, and harbour bar shoaling within ${rad}km of ${locStr}.`;
+    }
+
     if (isKar) {
       if (tr === 'last24h') {
         return `Live 24h marine observation: assess nearshore wave impact and baseline exposure across 320km Karnataka coast within ${rad}km buffer under calm sea conditions.`;
@@ -128,7 +149,13 @@ export const InvestigationControls: React.FC<Props> = ({ onRunAnalysis, loading 
     let newRad = radiusKm;
     let newLoc = location;
 
-    if (newTr === 'last24h') {
+    if (newTr === 'next12h') {
+      newRad = 25;
+    } else if (newTr === 'next24h') {
+      newRad = 40;
+    } else if (newTr === 'next48h') {
+      newRad = 70;
+    } else if (newTr === 'last24h') {
       newRad = 25;
     } else if (newTr === 'last7d') {
       newRad = 50;
@@ -220,10 +247,25 @@ export const InvestigationControls: React.FC<Props> = ({ onRunAnalysis, loading 
             className="bg-transparent text-sm text-[#0a1628] focus:outline-none cursor-pointer"
             aria-label="Time range"
           >
-            {TIME_RANGES.map(t => (
-              <option key={t.value} value={t.value}>{t.label}</option>
+            {TIME_RANGE_GROUPS.map((grp) => (
+              <optgroup key={grp.group} label={grp.group}>
+                {grp.options.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
+          {timeRange.startsWith('next') ? (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-300 whitespace-nowrap">
+              Forecast 🔮
+            </span>
+          ) : (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap">
+              Baseline 📜
+            </span>
+          )}
         </div>
 
         {/* Buffer Range Radius dropdown */}

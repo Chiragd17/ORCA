@@ -14,6 +14,8 @@ import {
   DataProvenance,
   DetailedResults,
   RiskLevelBadge,
+  VoyageForecastAdvisory,
+  ForecastResponse,
 } from './components';
 
 // Extract coastal features table data from findings
@@ -40,8 +42,13 @@ function extractCoastalFindings(findings: Finding[], evidence: EvidenceRecord[])
   return results;
 }
 
-// Extract risk summary from findings
-function extractRiskSummary(findings: Finding[], evidence: EvidenceRecord[], timeRange: string = 'last24h'): RiskSummary {
+// Extract risk summary from findings, observational data, and forward forecast models
+function extractRiskSummary(
+  findings: Finding[],
+  evidence: EvidenceRecord[],
+  timeRange: string = 'last24h',
+  forecastData: ForecastResponse | null = null
+): RiskSummary {
   let settlements = 0, population = 0, ports = 0, protectedAreas = 0, healthFacilities = 0;
 
   for (const ev of evidence) {
@@ -61,7 +68,22 @@ function extractRiskSummary(findings: Finding[], evidence: EvidenceRecord[], tim
   let riskLevel: RiskSummary['riskLevel'] = 'UNKNOWN';
   let riskDescription = 'Assessment unavailable — run analysis first.';
 
-  if (hasData) {
+  // If in forward forecast mode, anchor directly on real numerical forecast data
+  if (timeRange.startsWith('next') && forecastData) {
+    if (!forecastData.data_available) {
+      riskLevel = 'UNKNOWN';
+      riskDescription = 'Forecast numerical feed offline. Do not assume unmonitored waters are safe. Follow official IMD/INCOIS port warning flags.';
+    } else if (forecastData.overall_status === 'ADVERSE_WINDOW') {
+      riskLevel = 'HIGH';
+      riskDescription = `Adverse sea conditions forecast. Peak wave of ${forecastData.peak_wave.value_m.toFixed(2)}m (gusts ${forecastData.peak_gust.value_kmh.toFixed(0)} km/h) exceeds safe threshold for ${forecastData.vessel.name}.`;
+    } else if (forecastData.overall_status === 'CAUTION_WINDOW') {
+      riskLevel = 'MODERATE';
+      riskDescription = `Cautionary sea state forecast. Swells reach ${forecastData.peak_wave.value_m.toFixed(2)}m (gusts ${forecastData.peak_gust.value_kmh.toFixed(0)} km/h). Exercise caution at estuary mouth shoals.`;
+    } else {
+      riskLevel = 'LOW';
+      riskDescription = `Favorable voyage conditions forecast over next ${forecastData.hours} hours for ${forecastData.vessel.name}. Peak wave height ${forecastData.peak_wave.value_m.toFixed(2)}m remains within safe criteria.`;
+    }
+  } else if (hasData) {
     const hasHighWave = findings.some(f => f.claim?.toLowerCase().includes('high-wave hazard') || f.claim?.toLowerCase().includes('exceeds'));
     const hasCyclone = findings.some(f => f.claim?.toLowerCase().includes('cyclone') || f.claim?.toLowerCase().includes('storm surge') || f.claim?.toLowerCase().includes('tauktae'));
     
@@ -90,6 +112,7 @@ export const CoastalRiskWorkspace: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [forecastData, setForecastData] = useState<ForecastResponse | null>(null);
   const [activeTimeRange, setActiveTimeRange] = useState('historical');
   const [activeParams, setActiveParams] = useState({
     query: 'Historical cyclone surge: simulate Extreme Cyclone Tauktae (5.8m waves) regional disaster inundation cone across entire 320km Karnataka coastline.',
@@ -163,9 +186,12 @@ export const CoastalRiskWorkspace: React.FC = () => {
     );
   }, [runAnalysis]);
 
-  const riskSummary = investigation
-    ? extractRiskSummary(investigation.findings, evidence, activeTimeRange)
-    : null;
+  const riskSummary = extractRiskSummary(
+    investigation?.findings || [],
+    evidence,
+    activeTimeRange,
+    forecastData
+  );
   const coastalFindings = investigation
     ? extractCoastalFindings(investigation.findings, evidence)
     : [];
@@ -220,11 +246,34 @@ export const CoastalRiskWorkspace: React.FC = () => {
           </div>
         </div>
 
+        {/* Forward Forecast Voyage Decision Support Card */}
+        <VoyageForecastAdvisory
+          lat={activeParams.lat}
+          lon={activeParams.lon}
+          timeRange={activeTimeRange}
+          locationName={
+            activeParams.query.includes('Udupi')
+              ? 'Udupi Central Coast'
+              : activeParams.query.includes('Uttara') || activeParams.query.includes('Karwar')
+              ? 'Uttara Kannada (Karwar) Coast'
+              : activeParams.query.includes('Mangal') || activeParams.query.includes('Dakshina')
+              ? 'Mangaluru & Dakshina Coast'
+              : 'Karnataka Coast'
+          }
+          onForecastDataLoaded={setForecastData}
+        />
+
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <RiskExposureChart summary={riskSummary} loading={loading} />
           <PopulationChart evidence={evidence} loading={loading} />
-          <HazardTrackChart findings={investigation?.findings || []} loading={loading} />
+          <HazardTrackChart
+            findings={investigation?.findings || []}
+            loading={loading}
+            forecastPoints={forecastData?.hourly}
+            timeRange={activeTimeRange}
+            vesselCautionLimitM={forecastData?.vessel?.caution_wave_m}
+          />
         </div>
 
         {/* Detailed Results */}
