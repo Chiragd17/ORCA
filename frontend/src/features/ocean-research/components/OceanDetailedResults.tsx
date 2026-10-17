@@ -33,6 +33,7 @@ export const OceanDetailedResults: React.FC<Props> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>('observations');
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<string>('time');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selectedObservation, setSelectedObservation] = useState<OceanObservationRecord | null>(null);
@@ -52,8 +53,50 @@ export const OceanDetailedResults: React.FC<Props> = ({
     setTimeout(() => setCopiedHash(null), 2000);
   };
 
+  const getVariableTagClass = (v: string): string => {
+    const lower = v.toLowerCase();
+    if (lower.includes('anomaly')) return 'bg-amber-50 text-amber-800 border border-amber-200';
+    if (lower.includes('sst') || lower.includes('temperature')) return 'bg-rose-50 text-rose-700 border border-rose-200';
+    if (lower.includes('wave') && !lower.includes('period')) return 'bg-sky-50 text-sky-700 border border-sky-200';
+    if (lower.includes('period')) return 'bg-teal-50 text-teal-700 border border-teal-200';
+    if (lower.includes('current')) return 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+    if (lower.includes('chlorophyll') || lower.includes('turbidity')) return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+    if (lower.includes('pressure')) return 'bg-slate-100 text-slate-700 border border-slate-200';
+    return 'bg-blue-50 text-blue-700 border border-blue-200';
+  };
+
+  const getQualityBadge = (flag: string) => {
+    const upper = (flag || '').toUpperCase();
+    if (upper.includes('IN_SITU') || upper.includes('STATION')) {
+      return { bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' };
+    }
+    if (upper.includes('SATELLITE')) {
+      return { bg: 'bg-cyan-50 text-cyan-700 border-cyan-200', dot: 'bg-cyan-500' };
+    }
+    if (upper.includes('CLIMATOLOGY')) {
+      return { bg: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500' };
+    }
+    if (upper.includes('CALCULATED') || upper.includes('ANOMALY')) {
+      return { bg: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' };
+    }
+    return { bg: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500' };
+  };
+
   const filteredObservations = useMemo(() => {
     let result = [...observations];
+    if (categoryFilter !== 'all') {
+      if (categoryFilter === 'sst') {
+        result = result.filter((o) => o.variable.toLowerCase().includes('sst') || o.variable.toLowerCase().includes('temp'));
+      } else if (categoryFilter === 'waves') {
+        result = result.filter((o) => o.variable.toLowerCase().includes('wave') || o.variable.toLowerCase().includes('period'));
+      } else if (categoryFilter === 'currents') {
+        result = result.filter((o) => o.variable.toLowerCase().includes('current') || o.variable.toLowerCase().includes('drift'));
+      } else if (categoryFilter === 'insitu') {
+        result = result.filter((o) => o.provider.toLowerCase().includes('incois') || o.provider.toLowerCase().includes('buoy') || o.station_name.toLowerCase().includes('buoy'));
+      } else if (categoryFilter === 'satellite_clim') {
+        result = result.filter((o) => o.provider.toLowerCase().includes('copernicus') || o.provider.toLowerCase().includes('era5') || o.variable.toLowerCase().includes('anomaly'));
+      }
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -73,7 +116,7 @@ export const OceanDetailedResults: React.FC<Props> = ({
       return sortDir === 'desc' ? -cmp : cmp;
     });
     return result;
-  }, [observations, searchQuery, sortField, sortDir]);
+  }, [observations, searchQuery, categoryFilter, sortField, sortDir]);
 
   const toggleSort = (field: string) => {
     if (sortField === field) {
@@ -136,6 +179,32 @@ export const OceanDetailedResults: React.FC<Props> = ({
         {/* TAB 1: OBSERVATIONS */}
         {activeTab === 'observations' && (
           <div>
+            {/* Quick Category Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 mb-3">
+              <span className="text-[11px] font-semibold text-slate-400 mr-1">Variable Focus:</span>
+              {[
+                { id: 'all', label: 'All Observations' },
+                { id: 'sst', label: 'Sea Temp & SST' },
+                { id: 'waves', label: 'Waves & Swell' },
+                { id: 'currents', label: 'Current Vectors' },
+                { id: 'insitu', label: 'INCOIS Moored Buoy' },
+                { id: 'satellite_clim', label: 'Satellites & Climatology' },
+              ].map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setCategoryFilter(c.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
+                    categoryFilter === c.id
+                      ? 'bg-slate-900 text-white font-semibold shadow-2xs'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+
             {/* Search */}
             <div className="flex items-center gap-2 mb-3">
               <div className="flex-1 flex items-center gap-2 bg-[#f7fafc] border border-[#d8e4f0] rounded-lg px-3 py-1.5">
@@ -154,7 +223,7 @@ export const OceanDetailedResults: React.FC<Props> = ({
               <div className="py-8 text-center text-xs text-[#6b8fc0]">
                 {observations.length === 0
                   ? 'No ocean observations retrieved yet. Click "Run Research Analysis".'
-                  : 'No observations match your search filter.'}
+                  : 'No observations match your search or variable filter.'}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -202,7 +271,8 @@ export const OceanDetailedResults: React.FC<Props> = ({
                   <tbody>
                     {filteredObservations.slice(0, 50).map((obs) => {
                       const isAnomaly = obs.variable.toLowerCase().includes('anomaly');
-                      const isSst = obs.variable.toLowerCase().includes('sst') || obs.variable.toLowerCase().includes('temperature');
+                      const qBadge = getQualityBadge(obs.quality_flag);
+                      const tagClass = getVariableTagClass(obs.variable);
                       return (
                         <tr
                           key={obs.id}
@@ -217,19 +287,13 @@ export const OceanDetailedResults: React.FC<Props> = ({
                           </td>
                           <td className="py-2.5 px-2">
                             <span
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                isAnomaly
-                                  ? 'bg-amber-50 text-amber-700'
-                                  : isSst
-                                  ? 'bg-red-50 text-red-700'
-                                  : 'bg-blue-50 text-blue-700'
-                              }`}
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${tagClass}`}
                             >
                               {obs.variable}
                             </span>
                           </td>
                           <td className="py-2.5 px-2 text-right font-medium text-[#1a3258]">
-                            <span className="font-mono">
+                            <span className="font-mono font-semibold">
                               {isAnomaly && obs.value >= 0 ? `+${obs.value.toFixed(2)}` : obs.value.toFixed(2)}
                             </span>{' '}
                             <span className="text-[10px] text-[#6b8fc0]">{obs.unit || obs.units}</span>
@@ -243,13 +307,13 @@ export const OceanDetailedResults: React.FC<Props> = ({
                             })}
                           </td>
                           <td className="py-2.5 px-2">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" />
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${qBadge.bg}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${qBadge.dot} mr-1`} />
                               {obs.quality_flag}
                             </span>
                           </td>
                           <td className="py-2.5 px-2 text-[#6b8fc0] text-[11px]">{obs.provider}</td>
-                          <td className="py-2.5 px-2 text-[#2563eb] font-mono text-[10px]">{obs.evidence_id}</td>
+                          <td className="py-2.5 px-2 text-[#2563eb] font-mono text-[10px] font-semibold">{obs.evidence_id}</td>
                           <td className="py-2.5 px-2">
                             <ChevronRight className="w-3.5 h-3.5 text-[#93b1d6]" />
                           </td>
@@ -260,7 +324,7 @@ export const OceanDetailedResults: React.FC<Props> = ({
                 </table>
                 {filteredObservations.length > 50 && (
                   <p className="text-center text-[11px] text-[#93b1d6] py-2">
-                    Showing first 50 of {filteredObservations.length} records. Filter using search bar above.
+                    Showing first 50 of {filteredObservations.length} records. Filter using search bar or category pills above.
                   </p>
                 )}
               </div>
