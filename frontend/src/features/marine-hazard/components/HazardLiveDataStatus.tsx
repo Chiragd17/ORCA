@@ -6,6 +6,7 @@ import {
   Activity,
   X,
   RefreshCw,
+  Compass,
 } from 'lucide-react';
 import { hazardApi } from '../api';
 import { GDACSStatusResponse, MarineProviderStatusResponse } from '../types';
@@ -100,6 +101,27 @@ export const HazardLiveDataStatus: React.FC<Props> = ({
       metrics: [
         { label: 'Update Cadence', value: 'Hourly', detail: 'Live observations' },
         { label: 'Freshness', value: marineStatus?.freshness || 'fresh', detail: 'Open-Meteo Waves' },
+      ],
+    },
+    {
+      id: 'ecmwf-forecast',
+      name: 'Forward Marine Forecast (ECMWF IFS)',
+      category: 'Predictive Modeling',
+      status: 'online',
+      provider: 'European Centre for Medium-Range Weather Forecasts (ECMWF IFS)',
+      summary: '24h/7d predictive wave spectra & operational vessel risk advisory',
+      frequency: 'Hourly numerical weather prediction model runs',
+      datum: 'ECMWF IFS High-Resolution Ocean Surface Grid (0.25°)',
+      description: 'Live predictive meteorological modeling delivering forward wave spectra, peak wind gusts, and vessel-specific operational safe transit windows for coastal craft.',
+      icon: Compass,
+      iconColor: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-100',
+      metrics: [
+        { label: 'Forecast Horizon', value: '24h – 7 Days', detail: 'Hourly time steps' },
+        { label: 'Model Engine', value: 'ECMWF IFS', detail: 'Live prediction feed' },
+        { label: 'Vessel Advisory', value: '3 Vessel Classes', detail: 'Traditional, Motorized, Trawler' },
+        { label: 'Freshness', value: 'fresh', detail: 'Live automated feed' },
       ],
     },
   ];
