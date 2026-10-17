@@ -92,10 +92,10 @@ export const CoastalRiskWorkspace: React.FC = () => {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeTimeRange, setActiveTimeRange] = useState('historical');
   const [activeParams, setActiveParams] = useState({
-    query: 'Historical cyclone surge: simulate Extreme Cyclone Tauktae (5.8m waves) regional disaster inundation cone within 90km of Karnataka coast.',
-    lat: 13.20,
-    lon: 74.75,
-    radius: 90,
+    query: 'Historical cyclone surge: simulate Extreme Cyclone Tauktae (5.8m waves) regional disaster inundation cone across entire 320km Karnataka coastline.',
+    lat: 13.85,
+    lon: 74.50,
+    radius: 160,
     timeRange: 'historical',
   });
   const abortRef = useRef<AbortController | null>(null);
@@ -155,10 +155,10 @@ export const CoastalRiskWorkspace: React.FC = () => {
     hasInitializedRef.current = true;
 
     runAnalysis(
-      'Historical cyclone surge: simulate Extreme Cyclone Tauktae (5.8m waves) regional disaster inundation cone within 90km of Karnataka coast.',
-      13.20,
-      74.75,
-      90,
+      'Historical cyclone surge: simulate Extreme Cyclone Tauktae (5.8m waves) regional disaster inundation cone across entire 320km Karnataka coastline.',
+      13.85,
+      74.50,
+      160,
       'historical'
     );
   }, [runAnalysis]);

@@ -542,12 +542,33 @@ class CoastalRiskAgent(BaseAgent):
                 except ValueError as ve:
                     return None, None, None, None, f"Invalid top-level task coordinates: {ve}"
             else:
-                if "mangaluru" in q_lower or "mangalore" in q_lower:
-                    hazard_center = {"latitude": 12.9141, "longitude": 74.8560}
+                if "karwar" in q_lower or "baithkol" in q_lower:
+                    hazard_center = {"latitude": 14.8140, "longitude": 74.1298}
                     impact_radius_km = 30.0
+                elif "gokarna" in q_lower:
+                    hazard_center = {"latitude": 14.5426, "longitude": 74.3168}
+                    impact_radius_km = 25.0
+                elif "kumta" in q_lower:
+                    hazard_center = {"latitude": 14.4258, "longitude": 74.4173}
+                    impact_radius_km = 25.0
+                elif "honnavar" in q_lower:
+                    hazard_center = {"latitude": 14.2835, "longitude": 74.4520}
+                    impact_radius_km = 25.0
+                elif "bhatkal" in q_lower:
+                    hazard_center = {"latitude": 13.9850, "longitude": 74.5519}
+                    impact_radius_km = 25.0
+                elif "murudeshwar" in q_lower:
+                    hazard_center = {"latitude": 14.0942, "longitude": 74.4849}
+                    impact_radius_km = 20.0
+                elif "uttara kannada" in q_lower:
+                    hazard_center = {"latitude": 14.5000, "longitude": 74.3500}
+                    impact_radius_km = 65.0
+                elif "mangaluru" in q_lower or "mangalore" in q_lower or "dakshina kannada" in q_lower:
+                    hazard_center = {"latitude": 12.9141, "longitude": 74.8560}
+                    impact_radius_km = 35.0
                 elif "udupi" in q_lower:
                     hazard_center = {"latitude": 13.3409, "longitude": 74.7421}
-                    impact_radius_km = 30.0
+                    impact_radius_km = 35.0
                 elif "malpe" in q_lower:
                     hazard_center = {"latitude": 13.3512, "longitude": 74.7003}
                     impact_radius_km = 15.0
@@ -573,7 +594,7 @@ class CoastalRiskAgent(BaseAgent):
                         "projected track",
                     ]
                 ):
-                    hazard_bbox = (74.5, 12.5, 75.5, 14.0)
+                    hazard_bbox = (74.0, 12.7, 75.1, 15.0)
 
         return hazard_geom, hazard_bbox, hazard_center, impact_radius_km, None
 

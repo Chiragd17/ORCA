@@ -11,9 +11,9 @@ interface Props {
   radiusKm?: number;
 }
 
-// Karnataka coastal study area
-const DEFAULT_CENTER: [number, number] = [74.75, 13.20];
-const DEFAULT_ZOOM = 8.5;
+// Karnataka coastal study area (midpoint of 320km coast)
+const DEFAULT_CENTER: [number, number] = [74.50, 13.85];
+const DEFAULT_ZOOM = 7.5;
 
 // Feature type colors
 const FEATURE_COLORS: Record<string, string> = {

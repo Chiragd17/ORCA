@@ -119,29 +119,32 @@ const HISTORICAL_EVENTS = [
 ];
 
 const HISTORICAL_FEATURES = [
-  { name: 'Mangaluru City Corporation', type: 'Settlement', population: '499,487', source: 'Census 2011' },
-  { name: 'Udupi City Municipality', type: 'Settlement', population: '125,306', source: 'Census 2011' },
-  { name: 'Ullal Coastal Municipality', type: 'Settlement', population: '53,856', source: 'Census 2011' },
-  { name: 'Surathkal Coastal Settlement', type: 'Settlement', population: '41,634', source: 'Census 2011' },
-  { name: 'Kundapura Town Municipality', type: 'Settlement', population: '30,444', source: 'Census 2011' },
-  { name: 'Kaup (Kapu) Coastal Town', type: 'Settlement', population: '15,100', source: 'Census 2011' },
-  { name: 'Padubidri Coastal Village', type: 'Settlement', population: '11,200', source: 'Census 2011' },
+  { name: 'Mangaluru City Corporation', type: 'Settlement (Dakshina Kannada)', population: '499,487', source: 'Census 2011' },
+  { name: 'Udupi City Municipality', type: 'Settlement (Udupi)', population: '125,306', source: 'Census 2011' },
+  { name: 'Karwar City Corporation', type: 'Settlement (Uttara Kannada)', population: '77,139', source: 'Census 2011' },
+  { name: 'Bhatkal Coastal Municipality', type: 'Settlement (Uttara Kannada)', population: '50,007', source: 'Census 2011' },
+  { name: 'Kumta Coastal Municipality', type: 'Settlement (Uttara Kannada)', population: '32,596', source: 'Census 2011' },
+  { name: 'Kundapura Town Municipality', type: 'Settlement (Udupi)', population: '30,444', source: 'Census 2011' },
+  { name: 'Honnavar Town Municipality', type: 'Settlement (Uttara Kannada)', population: '19,109', source: 'Census 2011' },
+  { name: 'Gokarna Coastal Heritage', type: 'Settlement (Uttara Kannada)', population: '13,557', source: 'Census 2011' },
   { name: 'New Mangalore Port (NMPT)', type: 'Commercial Port', population: '—', source: 'OpenStreetMap' },
-  { name: 'Old Mangalore Port (Bunder)', type: 'Fishing Harbour', population: '—', source: 'OpenStreetMap' },
+  { name: 'Karwar Port (Baithkol)', type: 'Commercial Seaport', population: '—', source: 'OpenStreetMap' },
+  { name: 'INS Kadamba Naval Base', type: 'Strategic Naval Base', population: '—', source: 'OpenStreetMap' },
   { name: 'Malpe Fishing Harbour', type: 'Fisheries Terminal', population: '—', source: 'OpenStreetMap' },
-  { name: 'Netravati-Gurupura Mangroves', type: 'Protected Habitat', population: '—', source: 'KSCZMA' },
-  { name: 'District Wenlock Hospital', type: 'Healthcare Facility', population: '—', source: 'Health Dept' },
+  { name: 'Aghanashini Estuary (Ramsar #2509)', type: 'Ramsar Wetland Site', population: '—', source: 'Ramsar' },
+  { name: 'District Civil Hospital, Karwar', type: 'Healthcare Facility', population: '—', source: 'Health Dept' },
+  { name: 'District Wenlock Hospital, Mangaluru', type: 'Healthcare Facility', population: '—', source: 'Health Dept' },
 ];
 
 export const DataModals: React.FC<DataModalsProps> = ({ activeModal, onClose }) => {
   const navigate = useNavigate();
   const [selectedWorkspace, setSelectedWorkspace] = useState('coastal-risk');
-  const [targetLocation, setTargetLocation] = useState('Karnataka Statewide (All Districts)');
-  const [customLat, setCustomLat] = useState(13.20);
-  const [customLon, setCustomLon] = useState(74.75);
-  const [radius, setRadius] = useState(90);
+  const [targetLocation, setTargetLocation] = useState('Karnataka Statewide (All 3 Districts)');
+  const [customLat, setCustomLat] = useState(13.85);
+  const [customLon, setCustomLon] = useState(74.50);
+  const [radius, setRadius] = useState(160);
   const [queryText, setQueryText] = useState(
-    'Karnataka coastal zone: assess statewide coastal exposure and maritime conditions across Dakshina Kannada and Udupi.'
+    'Karnataka coastal zone: assess statewide coastal exposure and maritime conditions across Dakshina Kannada, Udupi, and Uttara Kannada (320km coastline).'
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -313,11 +316,11 @@ export const DataModals: React.FC<DataModalsProps> = ({ activeModal, onClose }) 
                 </div>
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {[
-                    { name: 'Karnataka Statewide (All Districts)', lat: 13.20, lon: 74.75, rad: 90 },
-                    { name: 'Mangaluru Urban Coast', lat: 12.9141, lon: 74.856, rad: 30 },
-                    { name: 'Ullal Spit & Estuary', lat: 12.8055, lon: 74.8564, rad: 15 },
-                    { name: 'Udupi & Malpe Harbour', lat: 13.3409, lon: 74.7421, rad: 25 },
-                    { name: 'Surathkal & Panambur', lat: 13.0068, lon: 74.7938, rad: 20 },
+                    { name: 'Karnataka Statewide (All 3 Districts)', lat: 13.85, lon: 74.50, rad: 160 },
+                    { name: 'Uttara Kannada (Karwar & Gokarna)', lat: 14.50, lon: 74.35, rad: 60 },
+                    { name: 'Udupi & Central Coast', lat: 13.3409, lon: 74.7421, rad: 40 },
+                    { name: 'Mangaluru & Dakshina Kannada', lat: 12.9141, lon: 74.856, rad: 40 },
+                    { name: 'Karwar Port & Baithkol Cove', lat: 14.8140, lon: 74.1298, rad: 25 },
                   ].map(loc => (
                     <button
                       key={loc.name}
