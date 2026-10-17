@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 from app.evidence.schemas import EvidenceRecord, VerificationState
 
@@ -50,6 +50,8 @@ class InvestigationTask(BaseModel):
 
 class Finding(BaseModel):
     """Atomic finding or measurement produced by an agent."""
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
     finding_id: Optional[str] = Field(None, description="Stable unique finding identifier")
     id: Optional[str] = Field(None, description="Alternative alias for finding_id")
     claim: str = Field(..., description="Clear scientific or observational claim")
@@ -62,15 +64,21 @@ class Finding(BaseModel):
     verification_state: VerificationState = Field(VerificationState.UNVERIFIED, description="Verification status")
     verification_status: Optional[Any] = Field(None, description="Alternative alias for verification_state")
 
-    def __init__(self, **data: Any):
-        if "id" in data and ("finding_id" not in data or not data["finding_id"]):
-            data["finding_id"] = data["id"]
-        elif "finding_id" in data and ("id" not in data or not data["id"]):
-            data["id"] = data["finding_id"]
-        if not data.get("finding_id"):
-            data["finding_id"] = "fnd-unknown"
-            data["id"] = "fnd-unknown"
-        super().__init__(**data)
+    @model_validator(mode="before")
+    @classmethod
+    def _unify_ids(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "id" in data and ("finding_id" not in data or not data["finding_id"]):
+                data["finding_id"] = data["id"]
+            elif "finding_id" in data and ("id" not in data or not data["id"]):
+                data["id"] = data["finding_id"]
+            if not data.get("finding_id"):
+                data["finding_id"] = "fnd-unknown"
+                data["id"] = "fnd-unknown"
+        elif hasattr(data, "__dict__"):
+            d = dict(data.__dict__)
+            return cls._unify_ids(d)
+        return data
 
 
 class AgentResult(BaseModel):

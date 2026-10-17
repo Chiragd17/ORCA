@@ -31,6 +31,7 @@ export interface EvidenceRecord {
 
 export interface Finding {
   finding_id: string;
+  id?: string;
   claim: string;
   value?: number;
   unit?: string;

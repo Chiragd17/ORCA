@@ -70,9 +70,11 @@ function categorizeFinding(claim: string): keyof typeof FINDING_ICONS {
   return 'marine';
 }
 
-function getTimeSince(findingId: string): string {
-  const seq = parseInt(findingId.split('_').pop() || '0');
-  return `${seq + 2} min ago`;
+function getTimeSince(findingId?: string): string {
+  if (!findingId) return '2 min ago';
+  const parts = String(findingId).split('_');
+  const seq = parseInt(parts.pop() || '0', 10);
+  return isNaN(seq) ? '2 min ago' : `${seq + 2} min ago`;
 }
 
 export const RecentFindings: React.FC<Props> = ({ findings, evidence = [] }) => {
@@ -104,7 +106,7 @@ export const RecentFindings: React.FC<Props> = ({ findings, evidence = [] }) => 
       list = list.filter(
         (f) =>
           f.claim.toLowerCase().includes(q) ||
-          f.finding_id.toLowerCase().includes(q) ||
+          (f.finding_id || (f as any).id || '').toLowerCase().includes(q) ||
           f.evidence_ids.some((eid) => eid.toLowerCase().includes(q))
       );
     }
@@ -181,14 +183,15 @@ export const RecentFindings: React.FC<Props> = ({ findings, evidence = [] }) => 
           </div>
         ) : (
           <div className="divide-y divide-[#f0f5fa]">
-            {displayFindings.map((f) => {
+            {displayFindings.map((f, idx) => {
+              const fid = f.finding_id || (f as any).id || `fnd-${idx}`;
               const category = categorizeFinding(f.claim);
               const style = FINDING_ICONS[category];
               return (
                 <div
-                  key={f.finding_id}
+                  key={fid}
                   onClick={() => {
-                    setSelectedFindingId(f.finding_id);
+                    setSelectedFindingId(fid);
                     setIsOpen(true);
                   }}
                   className="px-4 py-2.5 hover:bg-[#f7fafc] transition-colors cursor-pointer group"
@@ -213,7 +216,7 @@ export const RecentFindings: React.FC<Props> = ({ findings, evidence = [] }) => 
                       </div>
                     </div>
                     <span className="text-[10px] text-[#93b1d6] flex-shrink-0 whitespace-nowrap">
-                      {getTimeSince(f.finding_id)}
+                      {getTimeSince(fid)}
                     </span>
                   </div>
                 </div>
@@ -315,14 +318,15 @@ export const RecentFindings: React.FC<Props> = ({ findings, evidence = [] }) => 
                   <p className="text-xs text-slate-400">Try searching with a different term or select &quot;All Findings&quot;.</p>
                 </div>
               ) : (
-                filteredFindings.map((f) => {
+                filteredFindings.map((f, idx) => {
+                  const fid = f.finding_id || (f as any).id || `fnd-${idx}`;
                   const category = categorizeFinding(f.claim);
                   const style = FINDING_ICONS[category];
-                  const isSelected = selectedFindingId === f.finding_id;
+                  const isSelected = selectedFindingId === fid;
 
                   return (
                     <div
-                      key={f.finding_id}
+                      key={fid}
                       className={`p-4 rounded-xl border bg-white transition-all space-y-3 shadow-2xs ${
                         isSelected
                           ? 'border-blue-500 ring-2 ring-blue-500/20'
@@ -344,7 +348,7 @@ export const RecentFindings: React.FC<Props> = ({ findings, evidence = [] }) => 
                               {style.label}
                             </span>
                             <span className="font-mono text-[10.5px] text-slate-400 ml-2">
-                              {f.finding_id}
+                              {fid}
                             </span>
                           </div>
                         </div>
@@ -355,7 +359,7 @@ export const RecentFindings: React.FC<Props> = ({ findings, evidence = [] }) => 
                             VERIFIED
                           </span>
                           <span className="text-[10px] text-slate-400">
-                            {getTimeSince(f.finding_id)}
+                            {getTimeSince(fid)}
                           </span>
                         </div>
                       </div>
