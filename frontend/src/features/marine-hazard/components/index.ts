@@ -1,5 +1,5 @@
 export { HazardWorkspaceHeader } from './HazardWorkspaceHeader';
-export { HazardControls } from './HazardControls';
+export { HazardControls, type SectorPreset } from './HazardControls';
 export { HazardSummaryCards } from './HazardSummaryCards';
 export { HazardConditionBadge } from './HazardConditionBadge';
 export { HazardMap } from './HazardMap';

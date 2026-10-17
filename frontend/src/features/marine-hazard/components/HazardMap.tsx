@@ -15,6 +15,9 @@ interface Props {
   className?: string;
   source?: string;
   activeAlertCount?: number;
+  centerLat?: number;
+  centerLon?: number;
+  sectorName?: string;
 }
 
 const DEFAULT_CENTER: [number, number] = [74.50, 13.85]; // Karnataka Coastal Shelf midpoint
@@ -24,8 +27,8 @@ const formatCoord = (lat: number | null | undefined, lon: number | null | undefi
   if (lat === null || lat === undefined || lon === null || lon === undefined || isNaN(lat) || isNaN(lon)) {
     return 'N/A';
   }
-  const latStr = `${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'}`;
-  const lonStr = `${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'}`;
+  const latStr = `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'}`;
+  const lonStr = `${Math.abs(lon).toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
   return `${latStr}, ${lonStr}`;
 };
 
@@ -50,6 +53,9 @@ export const HazardMap: React.FC<Props> = ({
   className = 'h-[460px]',
   source,
   activeAlertCount: _activeAlertCount = 0,
+  centerLat,
+  centerLon,
+  sectorName,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -74,12 +80,15 @@ export const HazardMap: React.FC<Props> = ({
     );
   }, [trackPoints]);
 
-  const centerLat = validPoints.length > 0
+  const fallbackLat = validPoints.length > 0
     ? validPoints.reduce((acc, p) => acc + p.latitude, 0) / validPoints.length
     : DEFAULT_CENTER[1];
-  const centerLon = validPoints.length > 0
+  const fallbackLon = validPoints.length > 0
     ? validPoints.reduce((acc, p) => acc + p.longitude, 0) / validPoints.length
     : DEFAULT_CENTER[0];
+
+  const displayLat = typeof centerLat === 'number' ? centerLat : fallbackLat;
+  const displayLon = typeof centerLon === 'number' ? centerLon : fallbackLon;
 
   // Initialize MapLibre GL instance matching Person 1 & Person 3 styling
   useEffect(() => {
@@ -188,6 +197,9 @@ export const HazardMap: React.FC<Props> = ({
     if (validPoints.length >= 2) {
       const bounds = new maplibregl.LngLatBounds();
       validPoints.forEach((p) => bounds.extend([p.longitude, p.latitude]));
+      if (typeof centerLon === 'number' && typeof centerLat === 'number') {
+        bounds.extend([centerLon, centerLat]);
+      }
       map.fitBounds(bounds, {
         padding: { top: 60, bottom: 60, left: 60, right: 60 },
         maxZoom: 8.5,
@@ -199,6 +211,12 @@ export const HazardMap: React.FC<Props> = ({
         zoom: 7.2,
         duration: 900,
       });
+    } else if (typeof centerLon === 'number' && typeof centerLat === 'number') {
+      map.flyTo({
+        center: [centerLon, centerLat],
+        zoom: centerLon > 80 ? 5.8 : 7.0,
+        duration: 900,
+      });
     } else {
       map.flyTo({
         center: DEFAULT_CENTER,
@@ -206,7 +224,7 @@ export const HazardMap: React.FC<Props> = ({
         duration: 800,
       });
     }
-  }, [validPoints, mapReady]);
+  }, [validPoints, mapReady, centerLat, centerLon]);
 
   // Sync HTML waypoint markers on map
   useEffect(() => {
@@ -274,7 +292,9 @@ export const HazardMap: React.FC<Props> = ({
 
   const handleResetView = () => {
     if (!mapRef.current) return;
-    if (validPoints.length >= 2) {
+    if (typeof centerLon === 'number' && typeof centerLat === 'number') {
+      mapRef.current.flyTo({ center: [centerLon, centerLat], zoom: centerLon > 80 ? 5.8 : 7.0 });
+    } else if (validPoints.length >= 2) {
       const bounds = new maplibregl.LngLatBounds();
       validPoints.forEach((p) => bounds.extend([p.longitude, p.latitude]));
       mapRef.current.fitBounds(bounds, {
@@ -299,6 +319,7 @@ export const HazardMap: React.FC<Props> = ({
               {stormName ? `${stormName} (${stormId})` : 'Marine Hazard & Trajectory Track'}
             </h3>
             <span className="text-[10px] text-slate-400">
+              {sectorName ? `${sectorName} • ` : ''}
               {validPoints.length > 0
                 ? `${validPoints.length} Chronological Waypoint Fixes`
                 : 'Geospatial Hazard Monitoring & Coastal Shelf Tracking'}
@@ -313,7 +334,7 @@ export const HazardMap: React.FC<Props> = ({
 
         <div className="flex items-center gap-2 text-slate-500">
           <span className="hidden sm:inline font-mono text-[11px]">
-            Center: {formatCoord(centerLat, centerLon)}
+            Center: {formatCoord(displayLat, displayLon)}
           </span>
           <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 font-mono text-[10px]">
             {source ? `WGS84 • ${source}` : 'WGS84 • NOAA IBTrACS'}

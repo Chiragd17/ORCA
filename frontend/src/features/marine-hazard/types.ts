@@ -116,13 +116,13 @@ export interface HazardStatsResponse {
 }
 
 export interface HazardFilterState {
-  search: string;
-  basin: string;
-  category: string;
-  sortBy: string;
-  sortOrder: "asc" | "desc";
-  page: number;
-  limit: number;
+  search?: string;
+  basin?: string;
+  category?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  page?: number;
+  limit?: number;
 }
 
 export interface MarineForecastItem {

@@ -1,8 +1,27 @@
 import React, { useState } from 'react';
 import { MapPin, Clock, Compass, Play, Loader2, Zap, AlertTriangle } from 'lucide-react';
 
+export interface SectorPreset {
+  id: string;
+  label: string;
+  name: string;
+  lat: number;
+  lon: number;
+  rad: number;
+  basin: 'arabian_sea' | 'bay_of_bengal' | 'north_indian';
+  defaultHorizon: string;
+}
+
 interface Props {
-  onRunAnalysis: (query: string, lat: number, lon: number, radiusKm: number, timeHorizon: string, hazardType: string) => void;
+  onRunAnalysis: (
+    query: string,
+    lat: number,
+    lon: number,
+    radiusKm: number,
+    timeHorizon: string,
+    hazardType: string,
+    preset?: SectorPreset
+  ) => void;
   loading: boolean;
 }
 
@@ -20,23 +39,13 @@ export const HAZARD_FOCUSES = [
   { value: 'gdacs', label: 'Active GDACS Red/Orange Disaster Alerts' },
 ];
 
-export interface SectorPreset {
-  id: string;
-  label: string;
-  name: string;
-  lat: number;
-  lon: number;
-  rad: number;
-  defaultHorizon: string;
-}
-
 export const SECTOR_PRESETS: SectorPreset[] = [
-  { id: 'statewide', label: 'Statewide (All 3 Sectors)', name: 'Karnataka Coastal Shelf', lat: 13.85, lon: 74.50, rad: 160, defaultHorizon: 'forecast_7d' },
-  { id: 'uttara', label: 'Uttara Kannada (North / Karwar)', name: 'Karwar & Northern Shelf', lat: 14.80, lon: 74.12, rad: 50, defaultHorizon: 'forecast_7d' },
-  { id: 'udupi', label: 'Udupi (Central / Malpe)', name: 'Malpe & Central Coastal Shelf', lat: 13.35, lon: 74.55, rad: 40, defaultHorizon: 'forecast_7d' },
-  { id: 'dakshina', label: 'Dakshina Kannada (South / Mangaluru)', name: 'Mangaluru & Southern Shelf', lat: 12.87, lon: 74.88, rad: 40, defaultHorizon: 'forecast_7d' },
-  { id: 'arabian_deep', label: 'Offshore Arabian Sea (Deep Basin)', name: 'Arabian Sea Basin', lat: 14.00, lon: 68.00, rad: 350, defaultHorizon: 'forecast_7d' },
-  { id: 'bay_of_bengal', label: 'Bay of Bengal Basin', name: 'Bay of Bengal Basin', lat: 14.00, lon: 86.00, rad: 350, defaultHorizon: 'forecast_7d' },
+  { id: 'statewide', label: 'Statewide (All 3 Sectors)', name: 'Karnataka Coastal Shelf', lat: 13.85, lon: 74.50, rad: 160, basin: 'arabian_sea', defaultHorizon: 'forecast_7d' },
+  { id: 'uttara', label: 'Uttara Kannada (North / Karwar)', name: 'Karwar & Northern Shelf', lat: 14.80, lon: 74.12, rad: 50, basin: 'arabian_sea', defaultHorizon: 'forecast_7d' },
+  { id: 'udupi', label: 'Udupi (Central / Malpe)', name: 'Malpe & Central Coastal Shelf', lat: 13.35, lon: 74.55, rad: 40, basin: 'arabian_sea', defaultHorizon: 'forecast_7d' },
+  { id: 'dakshina', label: 'Dakshina Kannada (South / Mangaluru)', name: 'Mangaluru & Southern Shelf', lat: 12.87, lon: 74.88, rad: 40, basin: 'arabian_sea', defaultHorizon: 'forecast_7d' },
+  { id: 'arabian_deep', label: 'Offshore Arabian Sea (Deep Basin)', name: 'Arabian Sea Basin', lat: 14.00, lon: 68.00, rad: 350, basin: 'arabian_sea', defaultHorizon: 'forecast_7d' },
+  { id: 'bay_of_bengal', label: 'Bay of Bengal Basin', name: 'Bay of Bengal Basin', lat: 14.00, lon: 86.00, rad: 350, basin: 'bay_of_bengal', defaultHorizon: 'forecast_7d' },
 ];
 
 export const HazardControls: React.FC<Props> = ({ onRunAnalysis, loading }) => {
@@ -48,7 +57,7 @@ export const HazardControls: React.FC<Props> = ({ onRunAnalysis, loading }) => {
 
   const executeAnalysis = (preset: SectorPreset, horizon: string, focus: string) => {
     const query = `Analyze ${focus === 'all' ? 'marine wave conditions, cyclone hazards, and Douglas sea state' : focus} off ${preset.name} across ${horizon} horizon against verified PostgreSQL records.`;
-    onRunAnalysis(query, preset.lat, preset.lon, preset.rad, horizon, focus);
+    onRunAnalysis(query, preset.lat, preset.lon, preset.rad, horizon, focus, preset);
   };
 
   const handleSectorSelect = (preset: SectorPreset) => {
