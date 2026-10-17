@@ -444,7 +444,7 @@ export const VoyageForecastAdvisory: React.FC<Props> = ({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Hourly Sea-State Horizon ({Math.min(data.hourly.length, 12)} Hours Preview)
+                Hourly Sea-State Horizon
               </span>
               <span className="text-[10.5px] text-slate-400">Horizontal scroll for full window</span>
             </div>
