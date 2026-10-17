@@ -458,46 +458,7 @@ export const MarineHazardWorkspace: React.FC = () => {
           </div>
         )}
 
-        {/* Forward Marine Forecast & Operational Vessel Advisory - Primary Prominence */}
-        {forecastVisible ? (
-          <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-            <HazardForecastAdvisory
-              lat={activeParams.lat}
-              lon={activeParams.lon}
-              timeRange={activeParams.timeHorizon}
-              locationName={activeParams.presetName}
-              onClose={() => setForecastVisible(false)}
-            />
-          </div>
-        ) : (
-          <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-[#d8e4f0] shadow-xs text-xs animate-in fade-in duration-200">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl">
-                <Waves className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 font-bold text-[#0a1628] text-sm">
-                  <span>Forward Marine Forecast & Vessel Risk Advisory</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                    Live Feed Available
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  High-resolution numerical wave spectra (ECMWF IFS Model) and 24h operational vessel limits are available.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setForecastVisible(true)}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-semibold shadow-xs flex items-center gap-2 cursor-pointer text-xs transition-all hover:scale-[1.02]"
-            >
-              <Waves className="w-4 h-4" />
-              <span>Open Forecast Advisory</span>
-            </button>
-          </div>
-        )}
-
-        {/* Main Map + Summary Cards Row */}
+        {/* Main Map + Summary Cards Row (Above) */}
         <div id="hazard-map-card" className="grid grid-cols-1 lg:grid-cols-5 gap-4 scroll-mt-4">
           <div className="lg:col-span-3">
             <HazardMap
@@ -563,6 +524,45 @@ export const MarineHazardWorkspace: React.FC = () => {
             />
           </div>
         </div>
+
+        {/* Forward Marine Forecast & Operational Vessel Advisory (Below) */}
+        {forecastVisible ? (
+          <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+            <HazardForecastAdvisory
+              lat={activeParams.lat}
+              lon={activeParams.lon}
+              timeRange={activeParams.timeHorizon}
+              locationName={activeParams.presetName}
+              onClose={() => setForecastVisible(false)}
+            />
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-[#d8e4f0] shadow-xs text-xs animate-in fade-in duration-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl">
+                <Waves className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 font-bold text-[#0a1628] text-sm">
+                  <span>Forward Marine Forecast & Vessel Risk Advisory</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                    Live Feed Available
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  High-resolution numerical wave spectra (ECMWF IFS Model) and 24h operational vessel limits are available.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setForecastVisible(true)}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-semibold shadow-xs flex items-center gap-2 cursor-pointer text-xs transition-all hover:scale-[1.02]"
+            >
+              <Waves className="w-4 h-4" />
+              <span>Open Forecast Advisory</span>
+            </button>
+          </div>
+        )}
 
         {/* Specialist Agent Chat Panel */}
         <HazardSpecialistChat
