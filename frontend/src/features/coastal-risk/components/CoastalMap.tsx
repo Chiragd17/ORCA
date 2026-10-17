@@ -8,6 +8,7 @@ interface Props {
   evidence: EvidenceRecord[];
   findings?: Finding[];
   loading: boolean;
+  radiusKm?: number;
 }
 
 // Karnataka coastal study area
@@ -31,7 +32,7 @@ const FEATURE_ICONS: Record<string, string> = {
   protected_area: '🛡️',
 };
 
-export const CoastalMap: React.FC<Props> = ({ evidence, findings: _findings, loading }) => {
+export const CoastalMap: React.FC<Props> = ({ evidence, findings: _findings, loading, radiusKm = 90 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -236,7 +237,7 @@ export const CoastalMap: React.FC<Props> = ({ evidence, findings: _findings, loa
           </button>
           <div className="flex items-center gap-1">
             <span className="w-3 h-3 rounded-full bg-[#0891b2]" />
-            <span className="text-[#1a3258]">Karnataka Coastal Buffer (90 km)</span>
+            <span className="text-[#1a3258]">Coastal Buffer ({radiusKm} km)</span>
           </div>
         </div>
       </div>

@@ -90,13 +90,13 @@ export const CoastalRiskWorkspace: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [activeTimeRange, setActiveTimeRange] = useState('last24h');
+  const [activeTimeRange, setActiveTimeRange] = useState('historical');
   const [activeParams, setActiveParams] = useState({
-    query: 'Karnataka coastal zone: assess statewide live marine conditions and coastal exposure across Dakshina Kannada and Udupi districts (90km coastal corridor).',
+    query: 'Historical cyclone surge: simulate Extreme Cyclone Tauktae (5.8m waves) regional disaster inundation cone within 90km of Karnataka coast.',
     lat: 13.20,
     lon: 74.75,
     radius: 90,
-    timeRange: 'last24h',
+    timeRange: 'historical',
   });
   const abortRef = useRef<AbortController | null>(null);
   const hasInitializedRef = useRef(false);
@@ -155,11 +155,11 @@ export const CoastalRiskWorkspace: React.FC = () => {
     hasInitializedRef.current = true;
 
     runAnalysis(
-      'Karnataka coastal zone: assess statewide live marine conditions and coastal exposure across Dakshina Kannada and Udupi districts (90km coastal corridor).',
+      'Historical cyclone surge: simulate Extreme Cyclone Tauktae (5.8m waves) regional disaster inundation cone within 90km of Karnataka coast.',
       13.20,
       74.75,
       90,
-      'last24h'
+      'historical'
     );
   }, [runAnalysis]);
 
@@ -207,6 +207,7 @@ export const CoastalRiskWorkspace: React.FC = () => {
               evidence={evidence}
               findings={investigation?.findings || []}
               loading={loading}
+              radiusKm={activeParams.radius}
             />
           </div>
           <div className="lg:col-span-2 space-y-4">
