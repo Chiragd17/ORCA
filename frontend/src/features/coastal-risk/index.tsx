@@ -208,6 +208,7 @@ export const CoastalRiskWorkspace: React.FC = () => {
               findings={investigation?.findings || []}
               loading={loading}
               radiusKm={activeParams.radius}
+              center={[activeParams.lon, activeParams.lat]}
             />
           </div>
           <div className="lg:col-span-2 space-y-4">

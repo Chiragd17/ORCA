@@ -9,6 +9,7 @@ interface Props {
   findings?: Finding[];
   loading: boolean;
   radiusKm?: number;
+  center?: [number, number]; // [longitude, latitude]
 }
 
 // Karnataka coastal study area (midpoint of 320km coast)
@@ -32,7 +33,32 @@ const FEATURE_ICONS: Record<string, string> = {
   protected_area: '🛡️',
 };
 
-export const CoastalMap: React.FC<Props> = ({ evidence, findings: _findings, loading, radiusKm = 90 }) => {
+// Generate GeoJSON circular polygon for physical buffer rendering
+function createGeoJSONCircle(center: [number, number], radiusKm: number, points = 64) {
+  const coords: [number, number][] = [];
+  const [lon, lat] = center;
+  const distanceX = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
+  const distanceY = radiusKm / 110.574;
+
+  for (let i = 0; i < points; i++) {
+    const theta = (i / points) * (2 * Math.PI);
+    const x = distanceX * Math.cos(theta);
+    const y = distanceY * Math.sin(theta);
+    coords.push([lon + x, lat + y]);
+  }
+  coords.push(coords[0]); // Close polygon
+
+  return {
+    type: 'Feature' as const,
+    geometry: {
+      type: 'Polygon' as const,
+      coordinates: [coords],
+    },
+    properties: { radiusKm },
+  };
+}
+
+export const CoastalMap: React.FC<Props> = ({ evidence, findings: _findings, loading, radiusKm = 160, center }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -43,6 +69,8 @@ export const CoastalMap: React.FC<Props> = ({ evidence, findings: _findings, loa
     coastalFeatures: true,
     protectedAreas: true,
   });
+
+  const effectiveCenter: [number, number] = center && center[0] && center[1] ? center : DEFAULT_CENTER;
 
   // Initialize map
   useEffect(() => {
@@ -71,7 +99,7 @@ export const CoastalMap: React.FC<Props> = ({ evidence, findings: _findings, loa
           },
         ],
       },
-      center: DEFAULT_CENTER,
+      center: effectiveCenter,
       zoom: DEFAULT_ZOOM,
     });
 
@@ -89,6 +117,55 @@ export const CoastalMap: React.FC<Props> = ({ evidence, findings: _findings, loa
       map.remove();
     };
   }, []);
+
+  // Render and update dynamic spatial buffer circle on the map canvas
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+    const map = mapRef.current;
+    const circleData = createGeoJSONCircle(effectiveCenter, radiusKm);
+
+    try {
+      if (map.getSource('coastal-buffer-source')) {
+        (map.getSource('coastal-buffer-source') as maplibregl.GeoJSONSource).setData(circleData as any);
+      } else {
+        map.addSource('coastal-buffer-source', {
+          type: 'geojson',
+          data: circleData as any,
+        });
+
+        map.addLayer({
+          id: 'coastal-buffer-fill',
+          type: 'fill',
+          source: 'coastal-buffer-source',
+          paint: {
+            'fill-color': '#0891b2',
+            'fill-opacity': 0.12,
+          },
+        });
+
+        map.addLayer({
+          id: 'coastal-buffer-stroke',
+          type: 'line',
+          source: 'coastal-buffer-source',
+          paint: {
+            'line-color': '#0891b2',
+            'line-width': 2,
+            'line-dasharray': [4, 3],
+          },
+        });
+      }
+
+      const visibility = layers.hazardArea ? 'visible' : 'none';
+      if (map.getLayer('coastal-buffer-fill')) {
+        map.setLayoutProperty('coastal-buffer-fill', 'visibility', visibility);
+      }
+      if (map.getLayer('coastal-buffer-stroke')) {
+        map.setLayoutProperty('coastal-buffer-stroke', 'visibility', visibility);
+      }
+    } catch {
+      // Map instance could be unmounting
+    }
+  }, [mapReady, radiusKm, effectiveCenter, layers.hazardArea]);
 
   // Add markers from evidence
   useEffect(() => {
@@ -192,8 +269,8 @@ export const CoastalMap: React.FC<Props> = ({ evidence, findings: _findings, loa
 
     if (hasPoints) {
       mapRef.current!.fitBounds(bounds, {
-        padding: { top: 75, bottom: 40, left: 40, right: 40 },
-        maxZoom: 12,
+        padding: { top: 60, bottom: 40, left: 40, right: 40 },
+        maxZoom: 11,
       });
     }
   }, [evidence, mapReady, layers]);
@@ -220,8 +297,10 @@ export const CoastalMap: React.FC<Props> = ({ evidence, findings: _findings, loa
            style={{ position: 'relative', margin: '8px', marginBottom: 0 }}>
         <div className="flex flex-wrap gap-x-3 gap-y-1">
           <button onClick={() => toggleLayer('hazardArea')} className="flex items-center gap-1 cursor-pointer hover:opacity-70">
-            <span className="w-3 h-3 rounded bg-red-400/30 border border-red-400" />
-            <span className={layers.hazardArea ? 'text-[#1a3258]' : 'text-[#93b1d6] line-through'}>Hazard Area</span>
+            <span className="w-3 h-3 rounded bg-[#0891b2]/20 border border-[#0891b2] border-dashed" />
+            <span className={layers.hazardArea ? 'text-[#1a3258]' : 'text-[#93b1d6] line-through'}>
+              Buffer Zone ({radiusKm} km)
+            </span>
           </button>
           <button onClick={() => toggleLayer('settlements')} className="flex items-center gap-1 cursor-pointer hover:opacity-70">
             <span className="w-3 h-3 rounded-full bg-[#ef4444]" />
@@ -235,10 +314,6 @@ export const CoastalMap: React.FC<Props> = ({ evidence, findings: _findings, loa
             <span className="w-3 h-3 rounded bg-emerald-400/40 border border-emerald-400" />
             <span className={layers.protectedAreas ? 'text-[#1a3258]' : 'text-[#93b1d6] line-through'}>Protected Areas</span>
           </button>
-          <div className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-full bg-[#0891b2]" />
-            <span className="text-[#1a3258]">Coastal Buffer ({radiusKm} km)</span>
-          </div>
         </div>
       </div>
 

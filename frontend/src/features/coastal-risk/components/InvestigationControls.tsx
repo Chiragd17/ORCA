@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Clock, Compass, Play, Loader2 } from 'lucide-react';
+import { MapPin, Clock, Compass, Play, Loader2, Zap } from 'lucide-react';
 
 interface Props {
   onRunAnalysis: (query: string, lat: number, lon: number, radiusKm: number, timeRange: string) => void;
@@ -7,31 +7,62 @@ interface Props {
 }
 
 const TIME_RANGES = [
-  { value: 'last24h', label: 'Last 24 hours' },
-  { value: 'last7d', label: 'Last 7 days' },
-  { value: 'last30d', label: 'Last 30 days' },
-  { value: 'historical', label: 'Historical' },
+  { value: 'last24h', label: 'Last 24 hours (Live Baseline)' },
+  { value: 'last7d', label: 'Last 7 days (Weekly Swell)' },
+  { value: 'last30d', label: 'Last 30 days (Monthly Tide)' },
+  { value: 'historical', label: 'Historical (Cyclone Surge)' },
 ];
 
 const RANGE_OPTIONS = [
-  { value: 25, label: '25 km (Local Port / Nearshore)' },
-  { value: 50, label: '50 km (District Coastal Corridor)' },
-  { value: 100, label: '100 km (Regional Multi-District)' },
-  { value: 160, label: '160 km (Statewide 320km Coastline)' },
+  { value: 25, label: '25 km (Nearshore • 24h Baseline)' },
+  { value: 50, label: '50 km (District Corridor • 7-Day)' },
+  { value: 100, label: '100 km (Multi-District • 30-Day)' },
+  { value: 160, label: '160 km (Statewide Coastline • Historical)' },
 ];
 
-const REGION_PRESETS = [
-  { label: 'Statewide (All 3 Districts)', name: 'Karnataka Statewide', lat: 13.85, lon: 74.50, rad: 160 },
-  { label: 'Uttara Kannada (North)', name: 'Uttara Kannada (Karwar)', lat: 14.50, lon: 74.35, rad: 60 },
-  { label: 'Udupi (Central)', name: 'Udupi Central Coast', lat: 13.3409, lon: 74.7421, rad: 40 },
-  { label: 'Dakshina Kannada (South)', name: 'Mangaluru & Dakshina Kannada', lat: 12.9141, lon: 74.8560, rad: 40 },
+interface SectorPreset {
+  id: string;
+  label: string;
+  name: string;
+  lat: number;
+  lon: number;
+  rad: number;
+  timeRange: string;
+}
+
+const REGION_PRESETS: SectorPreset[] = [
+  { id: 'statewide', label: 'Statewide (All 3 Districts)', name: 'Karnataka Statewide', lat: 13.85, lon: 74.50, rad: 160, timeRange: 'historical' },
+  { id: 'uttara', label: 'Uttara Kannada (North)', name: 'Uttara Kannada (Karwar)', lat: 14.50, lon: 74.35, rad: 50, timeRange: 'last7d' },
+  { id: 'udupi', label: 'Udupi (Central)', name: 'Udupi Central Coast', lat: 13.3409, lon: 74.7421, rad: 40, timeRange: 'last7d' },
+  { id: 'dakshina', label: 'Dakshina Kannada (South)', name: 'Mangaluru & Dakshina Kannada', lat: 12.9141, lon: 74.8560, rad: 40, timeRange: 'last7d' },
 ];
 
 export const InvestigationControls: React.FC<Props> = ({ onRunAnalysis, loading }) => {
   const [location, setLocation] = useState('Karnataka Statewide');
   const [timeRange, setTimeRange] = useState('historical');
   const [radiusKm, setRadiusKm] = useState<number>(160);
+  const [autoRun, setAutoRun] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Compute which sector pill is active based on current location and radius
+  const getActiveSectorId = (): string => {
+    if (radiusKm >= 140 || location.toLowerCase().includes('statewide') || location.toLowerCase().includes('all')) {
+      return 'statewide';
+    }
+    const l = location.toLowerCase();
+    if (l.includes('uttara') || l.includes('karwar') || l.includes('gokarna') || l.includes('kumta') || l.includes('honnavar') || l.includes('bhatkal')) {
+      return 'uttara';
+    }
+    if (l.includes('udupi') || l.includes('malpe') || l.includes('kundapura') || l.includes('byndoor') || l.includes('kaup') || l.includes('padubidri')) {
+      return 'udupi';
+    }
+    if (l.includes('dakshina') || l.includes('mangaluru') || l.includes('mangalore') || l.includes('ullal') || l.includes('surathkal')) {
+      return 'dakshina';
+    }
+    return '';
+  };
+
+  const activeSectorId = getActiveSectorId();
 
   const getCoordinates = (locStr: string) => {
     const lowerLoc = locStr.trim().toLowerCase();
@@ -45,7 +76,7 @@ export const InvestigationControls: React.FC<Props> = ({ onRunAnalysis, loading 
     else if (lowerLoc.includes('honnavar')) { lat = 14.2835; lon = 74.4520; }
     else if (lowerLoc.includes('bhatkal')) { lat = 13.9850; lon = 74.5519; }
     else if (lowerLoc.includes('murudeshwar')) { lat = 14.0942; lon = 74.4849; }
-    else if (lowerLoc.includes('uttara kannada')) { lat = 14.5000; lon = 74.3500; }
+    else if (lowerLoc.includes('uttara')) { lat = 14.5000; lon = 74.3500; }
     else if (lowerLoc.includes('byndoor') || lowerLoc.includes('baindur')) { lat = 13.8732; lon = 74.6288; }
     else if (lowerLoc.includes('kundapura')) { lat = 13.6264; lon = 74.6934; }
     else if (lowerLoc.includes('udupi')) { lat = 13.3409; lon = 74.7421; }
@@ -53,7 +84,7 @@ export const InvestigationControls: React.FC<Props> = ({ onRunAnalysis, loading 
     else if (lowerLoc.includes('kaup')) { lat = 13.2241; lon = 74.7432; }
     else if (lowerLoc.includes('padubidri')) { lat = 13.1360; lon = 74.7788; }
     else if (lowerLoc.includes('surathkal')) { lat = 13.0068; lon = 74.7938; }
-    else if (lowerLoc.includes('mangaluru') || lowerLoc.includes('mangalore') || lowerLoc.includes('dakshina kannada')) { lat = 12.9141; lon = 74.8560; }
+    else if (lowerLoc.includes('mangaluru') || lowerLoc.includes('mangalore') || lowerLoc.includes('dakshina')) { lat = 12.9141; lon = 74.8560; }
     else if (lowerLoc.includes('ullal')) { lat = 12.8055; lon = 74.8564; }
     return { lat, lon, isKarnataka: false };
   };
@@ -91,32 +122,72 @@ export const InvestigationControls: React.FC<Props> = ({ onRunAnalysis, loading 
     setTimeout(() => setIsSubmitting(false), 500);
   };
 
+  // Synchronize duration and update radius accordingly
   const handleTimeRangeChange = (newTr: string) => {
     setTimeRange(newTr);
     let newRad = radiusKm;
-    if (newTr === 'last24h') newRad = 25;
-    else if (newTr === 'last7d') newRad = 50;
-    else if (newTr === 'last30d') newRad = 100;
-    else if (newTr === 'historical') newRad = 160;
+    let newLoc = location;
+
+    if (newTr === 'last24h') {
+      newRad = 25;
+    } else if (newTr === 'last7d') {
+      newRad = 50;
+    } else if (newTr === 'last30d') {
+      newRad = 100;
+    } else if (newTr === 'historical') {
+      newRad = 160;
+      newLoc = 'Karnataka Statewide';
+      setLocation(newLoc);
+    }
 
     setRadiusKm(newRad);
-    executeAnalysis(location, newRad, newTr);
+    if (autoRun) {
+      executeAnalysis(newLoc, newRad, newTr);
+    }
   };
 
+  // Synchronize radius and automatically activate matching sector pill & duration
   const handleRadiusChange = (newRad: number) => {
     setRadiusKm(newRad);
-    executeAnalysis(location, newRad, timeRange);
+    let newLoc = location;
+    let newTr = timeRange;
+
+    if (newRad === 160) {
+      // 160km corresponds to Statewide full coast
+      newLoc = 'Karnataka Statewide';
+      setLocation(newLoc);
+      newTr = 'historical';
+      setTimeRange(newTr);
+    } else if (newRad === 100) {
+      newTr = 'last30d';
+      setTimeRange(newTr);
+    } else if (newRad === 50) {
+      newTr = 'last7d';
+      setTimeRange(newTr);
+    } else if (newRad === 25) {
+      newTr = 'last24h';
+      setTimeRange(newTr);
+    }
+
+    if (autoRun) {
+      executeAnalysis(newLoc, newRad, newTr);
+    }
   };
 
-  const handlePresetClick = (preset: typeof REGION_PRESETS[0]) => {
+  // When clicking a coastal sector preset, sync location, radius, and duration
+  const handlePresetClick = (preset: SectorPreset) => {
     setLocation(preset.name);
     setRadiusKm(preset.rad);
-    if (loading || isSubmitting) return;
-    setIsSubmitting(true);
-    const isKar = preset.name.includes('Karnataka') || preset.name.includes('Statewide');
-    const query = buildQuery(preset.name, preset.rad, timeRange, isKar);
-    onRunAnalysis(query, preset.lat, preset.lon, preset.rad, timeRange);
-    setTimeout(() => setIsSubmitting(false), 500);
+    setTimeRange(preset.timeRange);
+
+    if (autoRun) {
+      if (loading || isSubmitting) return;
+      setIsSubmitting(true);
+      const isKar = preset.id === 'statewide';
+      const query = buildQuery(preset.name, preset.rad, preset.timeRange, isKar);
+      onRunAnalysis(query, preset.lat, preset.lon, preset.rad, preset.timeRange);
+      setTimeout(() => setIsSubmitting(false), 500);
+    }
   };
 
   const handleSubmit = () => {
@@ -126,7 +197,7 @@ export const InvestigationControls: React.FC<Props> = ({ onRunAnalysis, loading 
   return (
     <div className="p-3 rounded-xl bg-white border border-[#d8e4f0] shadow-sm space-y-2">
       <div className="flex flex-wrap items-center gap-3">
-        {/* Location */}
+        {/* Location input */}
         <div className="flex-1 min-w-[200px] flex items-center gap-2 bg-[#f7fafc] border border-[#d8e4f0] rounded-lg px-3 py-2">
           <MapPin className="w-4 h-4 text-[#4a6fa5] flex-shrink-0" />
           <input
@@ -140,7 +211,7 @@ export const InvestigationControls: React.FC<Props> = ({ onRunAnalysis, loading 
           />
         </div>
 
-        {/* Time range */}
+        {/* Time range dropdown */}
         <div className="flex items-center gap-2 bg-[#f7fafc] border border-[#d8e4f0] rounded-lg px-3 py-2">
           <Clock className="w-4 h-4 text-[#4a6fa5] flex-shrink-0" />
           <select
@@ -155,7 +226,7 @@ export const InvestigationControls: React.FC<Props> = ({ onRunAnalysis, loading 
           </select>
         </div>
 
-        {/* Buffer Range Radius */}
+        {/* Buffer Range Radius dropdown */}
         <div className="flex items-center gap-2 bg-[#f7fafc] border border-[#d8e4f0] rounded-lg px-3 py-2">
           <Compass className="w-4 h-4 text-[#2563eb] flex-shrink-0" />
           <select
@@ -169,6 +240,21 @@ export const InvestigationControls: React.FC<Props> = ({ onRunAnalysis, loading 
             ))}
           </select>
         </div>
+
+        {/* Auto-run toggle pill */}
+        <button
+          type="button"
+          onClick={() => setAutoRun(!autoRun)}
+          title={autoRun ? "Auto-Run is ON (instant analysis upon option change)" : "Auto-Run is OFF (configure options then click Run Analysis)"}
+          className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+            autoRun
+              ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+          }`}
+        >
+          <Zap className={`w-3.5 h-3.5 ${autoRun ? 'text-blue-600 fill-blue-600' : 'text-slate-400'}`} />
+          <span className="hidden sm:inline">{autoRun ? 'Auto: ON' : 'Auto: OFF'}</span>
+        </button>
 
         {/* Run Analysis Button */}
         <button
@@ -185,19 +271,19 @@ export const InvestigationControls: React.FC<Props> = ({ onRunAnalysis, loading 
         </button>
       </div>
 
-      {/* Coastal District Quick-Select Pills */}
+      {/* Coastal District Quick-Select Pills (Two-way Synced) */}
       <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-[#f1f5f9]">
         <span className="text-[11px] text-[#6b8fc0] font-medium mr-1">Coastal Sectors:</span>
         {REGION_PRESETS.map((preset) => {
-          const isActive = location === preset.name;
+          const isSelected = activeSectorId === preset.id;
           return (
             <button
-              key={preset.name}
+              key={preset.id}
               type="button"
               onClick={() => handlePresetClick(preset)}
               className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer border ${
-                isActive
-                  ? 'bg-[#1e3a5f] text-white border-[#1e3a5f] shadow-xs'
+                isSelected
+                  ? 'bg-[#1e3a5f] text-white border-[#1e3a5f] shadow-xs font-semibold'
                   : 'bg-[#f8fafc] text-[#475569] border-[#e2e8f0] hover:bg-[#e2e8f0] hover:text-[#0f172a]'
               }`}
             >
@@ -210,7 +296,7 @@ export const InvestigationControls: React.FC<Props> = ({ onRunAnalysis, loading 
       {loading && (
         <div className="mt-2 flex items-center gap-2 text-xs text-[#4a6fa5]">
           <Loader2 className="w-3 h-3 animate-spin" />
-          <span>Analyzing coastal risk buffer ({radiusKm} km) across Karnataka verified datasets</span>
+          <span>Analyzing coastal risk buffer ({radiusKm} km) across Karnataka verified datasets...</span>
         </div>
       )}
     </div>
