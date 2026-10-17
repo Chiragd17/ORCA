@@ -17,25 +17,7 @@ class FindingCategory(str, Enum):
     DETERMINISTIC_CALCULATION = "deterministic_calculation"
     AI_INTERPRETATION = "ai_interpretation"
 
-class EvidenceRecord(BaseModel):
-    id: str = Field(..., description="Stable, unique evidence identifier (e.g., ev-om-sst-01)")
-    source_name: str = Field(..., description="Source dataset or provider name")
-    source_uri: str = Field(..., description="URL or source identifier")
-    observation_time: Optional[datetime] = Field(None, description="Observation or valid forecast timestamp in UTC")
-    retrieval_time: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        description="Timestamp when record was retrieved by ORCA in UTC"
-    )
-    latitude: Optional[float] = Field(None, ge=-90.0, le=90.0)
-    longitude: Optional[float] = Field(None, ge=-180.0, le=180.0)
-    data_type: str = Field(..., description="Type of measurement or feature (e.g., sst, wave_height)")
-    value: Optional[Any] = Field(None, description="Raw observation or structured measurement value")
-    unit: Optional[str] = Field(None, description="Unit of measurement (e.g. °C, m, m/s, knots)")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional provenance or quality metadata")
-
-    @property
-    def evidence_id(self) -> str:
-        return self.id
+from app.evidence.schemas import EvidenceRecord
 
 class Finding(BaseModel):
     id: Optional[str] = None

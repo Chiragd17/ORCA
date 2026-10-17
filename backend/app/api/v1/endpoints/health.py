@@ -1,5 +1,5 @@
 import asyncio
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from sqlalchemy import text
 from app.core.logging import logger
 from app.schemas import HealthResponse
@@ -10,12 +10,13 @@ router = APIRouter()
 
 
 @router.get("/health", response_model=HealthResponse, tags=["Health"])
-async def get_health():
+async def get_health(response: Response):
     """Health check verifying backend service status and database connectivity."""
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     db_status = "disconnected"
     try:
-        # Check database connectivity with a strict 1.5s timeout to prevent hanging
-        async with asyncio.timeout(1.5):
+        # Check database connectivity with a 3.0s timeout to allow for transient startup delay
+        async with asyncio.timeout(3.0):
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
                 db_status = "connected"

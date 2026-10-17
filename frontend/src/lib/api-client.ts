@@ -57,8 +57,8 @@ class ApiClient {
     for (const url of candidateUrls) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2500);
-        const resp = await fetch(url, { signal: controller.signal });
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const resp = await fetch(url, { signal: controller.signal, cache: 'no-store' });
         clearTimeout(timeoutId);
 
         if (resp.ok) {
