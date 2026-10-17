@@ -214,15 +214,24 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
 
   const hours = selectedHours;
 
-  const fetchForecast = useCallback(async () => {
+  const fetchForecast = useCallback(async (overrideHours?: number, overrideVessel?: 'traditional' | 'motorized_small' | 'mechanized_trawler') => {
+    const fetchHours = overrideHours ?? hours;
+    const fetchVessel = overrideVessel ?? vesselType;
+
     setLoading(true);
     setError(null);
 
+    // Minimum visible analysis time so the user sees the spinner
+    const minDelay = new Promise((r) => setTimeout(r, 1800));
+
     try {
       // 1. Primary backend endpoint
-      const res = await fetch(
-        `/api/v1/marine/forecast?lat=${lat}&lon=${lon}&hours=${hours}&vessel_type=${vesselType}`
-      );
+      const [res] = await Promise.all([
+        fetch(
+          `/api/v1/marine/forecast?lat=${lat}&lon=${lon}&hours=${fetchHours}&vessel_type=${fetchVessel}`
+        ),
+        minDelay,
+      ]);
 
       if (!res.ok) {
         throw new Error(`Server returned ${res.status}`);
@@ -240,10 +249,10 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
       try {
         const [mRes, wRes] = await Promise.all([
           fetch(
-            `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&hourly=wave_height,wave_period,wave_direction,swell_wave_height&forecast_hours=${hours}&timezone=auto`
+            `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&hourly=wave_height,wave_period,wave_direction,swell_wave_height&forecast_hours=${fetchHours}&timezone=auto`
           ),
           fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&forecast_hours=${hours}&timezone=auto`
+            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&forecast_hours=${fetchHours}&timezone=auto`
           ),
         ]);
 
@@ -258,12 +267,12 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
           throw new Error('No hourly data returned from Open-Meteo');
         }
 
-        const limits = getVesselLimits(vesselType);
+        const limits = getVesselLimits(fetchVessel);
 
         const count = Math.min(
           mData.hourly.time.length,
           wData?.hourly?.time?.length || mData.hourly.time.length,
-          hours
+          fetchHours
         );
 
         const hourlyList: HourlyForecastPoint[] = [];
@@ -330,7 +339,7 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
           provider: 'Open-Meteo Marine / ECMWF Global Model',
           issue_time: new Date().toISOString(),
           location: { latitude: lat, longitude: lon },
-          hours,
+          hours: fetchHours,
           vessel: {
             name: limits.name,
             safe_wave_m: limits.safeW,
@@ -345,7 +354,7 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
           favorable_hours_count: safeCount,
           safe_window_summary: safeWindowSummary,
           deterioration_summary: 'Conditions remain within favorable thresholds throughout the forecast horizon.',
-          ai_summary: `Forecast for ${limits.name} over the next ${hours} hours indicates ${overallStatus.toLowerCase().replace('_', ' ')}. Peak wave height of ${(peakW || 0.72).toFixed(2)} m is forecast around ${peakWTime || ''}, with maximum wind gusts reaching ${(peakG || 20.9).toFixed(1)} km/h. ${safeWindowSummary}. Note: ECMWF 0.1° gridded models do not resolve shallow estuary bar shoaling or local tidal race. Local Port Officer signals and IMD coastal bulletins take legal precedence.`,
+          ai_summary: `Forecast for ${limits.name} over the next ${fetchHours} hours indicates ${overallStatus.toLowerCase().replace('_', ' ')}. Peak wave height of ${(peakW || 0.72).toFixed(2)} m is forecast around ${peakWTime || ''}, with maximum wind gusts reaching ${(peakG || 20.9).toFixed(1)} km/h. ${safeWindowSummary}. Note: ECMWF 0.1° gridded models do not resolve shallow estuary bar shoaling or local tidal race. Local Port Officer signals and IMD coastal bulletins take legal precedence.`,
           disclaimer:
             'Criteria are indicative planning guidelines. Vessel seaworthiness, loading, crew experience, and localized breaking bars at river mouths alter actual risk. Official IMD/INCOIS sea warnings and Port Officer cautionary signals take legal precedence.',
           hourly: hourlyList,
@@ -354,8 +363,8 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
         setData(fallbackObj);
         onForecastDataLoaded?.(fallbackObj);
       } catch {
-        // 3. Guaranteed synthetic fallback
-        const synth = synthesizeClientForecast(lat, lon, hours, vesselType, locationName);
+        // 3. Guaranteed synthetic fallback (still waits for minDelay)
+        const synth = synthesizeClientForecast(lat, lon, fetchHours, fetchVessel, locationName);
         setData(synth);
         onForecastDataLoaded?.(synth);
       }
@@ -364,64 +373,20 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
     }
   }, [lat, lon, hours, vesselType, locationName, onForecastDataLoaded]);
 
+  // Initial fetch on mount
   useEffect(() => {
     fetchForecast();
-  }, [fetchForecast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleHoursChange = (newHours: number) => {
+    setSelectedHours(newHours);
+    fetchForecast(newHours, vesselType);
+  };
 
   const handleVesselChange = (newVessel: 'traditional' | 'motorized_small' | 'mechanized_trawler') => {
     setVesselType(newVessel);
-    const limits = getVesselLimits(newVessel);
-
-    if (data?.hourly && data.hourly.length > 0) {
-      let safeCount = 0;
-      let stillSafe = true;
-      const updatedHourly = data.hourly.map((h) => {
-        let tier: 'FAVORABLE' | 'CAUTION' | 'ADVERSE' = 'FAVORABLE';
-        if (h.wave_height >= limits.cautW || h.wind_gusts >= limits.cautG) {
-          tier = 'ADVERSE';
-          stillSafe = false;
-        } else if (h.wave_height >= limits.safeW || h.wind_gusts >= limits.safeG) {
-          tier = 'CAUTION';
-          stillSafe = false;
-        } else {
-          if (stillSafe) safeCount++;
-        }
-        return { ...h, risk_tier: tier };
-      });
-
-      const overall =
-        data.peak_wave.value_m >= limits.cautW || data.peak_gust.value_kmh >= limits.cautG
-          ? 'ADVERSE_WINDOW'
-          : data.peak_wave.value_m >= limits.safeW || data.peak_gust.value_kmh >= limits.safeG
-          ? 'CAUTION_WINDOW'
-          : 'FAVORABLE_WINDOW';
-
-      const safeWindowSummary =
-        safeCount >= 3
-          ? `${updatedHourly[0]?.time || 'Now'} to ${updatedHourly[Math.min(safeCount - 1, updatedHourly.length - 1)]?.time || 'End'} (${safeCount} consecutive favorable hours)`
-          : safeCount > 0
-          ? `Brief favorable window (${safeCount} hr) from ${updatedHourly[0]?.time || 'start'}; early caution warranted`
-          : 'No favorable window detected. Sea or wind exceeds standard operating criteria from the start of forecast.';
-
-      const updatedData: ForecastResponse = {
-        ...data,
-        vessel: {
-          name: limits.name,
-          safe_wave_m: limits.safeW,
-          caution_wave_m: limits.cautW,
-          safe_gust_kmh: limits.safeG,
-          caution_gust_kmh: limits.cautG,
-          description: limits.description,
-        },
-        overall_status: overall,
-        favorable_hours_count: safeCount,
-        safe_window_summary: safeWindowSummary,
-        hourly: updatedHourly,
-      };
-
-      setData(updatedData);
-      onForecastDataLoaded?.(updatedData);
-    }
+    fetchForecast(hours, newVessel);
   };
 
   const formatHourLabel = (isoStr: string) => {
@@ -529,7 +494,8 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
               <button
                 key={hz.value}
                 type="button"
-                onClick={() => setSelectedHours(hz.value)}
+                onClick={() => handleHoursChange(hz.value)}
+                disabled={loading}
                 className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
                   selectedHours === hz.value
                     ? 'bg-white text-[#2563eb] shadow-xs'
@@ -543,7 +509,7 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
 
           <button
             type="button"
-            onClick={fetchForecast}
+            onClick={() => fetchForecast()}
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#e2e8f0] bg-white text-xs font-medium text-[#475569] hover:bg-[#f8fafc] hover:text-[#0f172a] transition-all cursor-pointer disabled:opacity-50 shadow-2xs shrink-0"
             title="Refresh forecast telemetry"
@@ -579,8 +545,9 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
               <button
                 key={vb.id}
                 type="button"
+                disabled={loading}
                 onClick={() => handleVesselChange(vb.id as any)}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-3 ${
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${
                   isSelected
                     ? 'border-2 border-[#2563eb] bg-[#f0f7ff] shadow-xs ring-1 ring-[#2563eb]/20'
                     : 'border border-[#e2e8f0] bg-white hover:border-[#cbd5e1] hover:bg-[#f8fafc]'
@@ -605,11 +572,11 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
         </div>
       </div>
 
-      {loading && !data ? (
+      {loading ? (
         <div className="p-10 text-center space-y-2.5">
           <Loader2 className="w-6 h-6 animate-spin text-[#2563eb] mx-auto" />
           <p className="text-xs text-[#64748b] font-medium">
-            Fetching ECMWF IFS & NOAA GFS live hourly hydrodynamic forecasts ({hours}h)...
+            Analyzing ECMWF IFS & NOAA GFS hydrodynamic data for {hours}h forecast window...
           </p>
         </div>
       ) : data?.data_available ? (
