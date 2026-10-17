@@ -86,8 +86,17 @@ export const MarineHazardWorkspace: React.FC = () => {
       if (!initialStorm && historyRes.items && historyRes.items.length > 0) {
         initialStorm =
           historyRes.items.find(
-            (h) => h.name.toUpperCase().includes('TAUKTAE') || h.basin === 'arabian_sea'
-          ) || historyRes.items[0];
+            (h) => h.name.toUpperCase().includes('TAUKTAE') || h.hazard_id === 'hz-ibtracs-2021133n10071'
+          ) || null;
+
+        if (!initialStorm) {
+          const tauktaeRes = await hazardApi.fetchHazardList({ search: 'Tauktae', limit: 1 }).catch(() => ({ items: [] }));
+          if (tauktaeRes.items && tauktaeRes.items.length > 0) {
+            initialStorm = tauktaeRes.items[0];
+          } else {
+            initialStorm = historyRes.items.find((h) => h.basin === 'arabian_sea') || historyRes.items[0];
+          }
+        }
       }
 
       if (initialStorm) {
@@ -272,13 +281,12 @@ export const MarineHazardWorkspace: React.FC = () => {
             // Karnataka Coastline (Statewide, Uttara Kannada, Udupi, Dakshina Kannada)
             chosenStorm =
               historicalEvents.find(
-                (h) => h.name.includes('Tauktae') || h.name.includes('Shakhti')
-              ) ||
-              historicalEvents.find((h) => h.basin === 'arabian_sea') ||
-              null;
+                (h) => h.name.toUpperCase().includes('TAUKTAE') || h.hazard_id === 'hz-ibtracs-2021133n10071'
+              ) || null;
             if (!chosenStorm) {
-              const asRes = await hazardApi.fetchHazardList({ basin: 'arabian_sea', search: 'Tauktae', limit: 5 }).catch(() => ({ items: [] }));
+              const asRes = await hazardApi.fetchHazardList({ basin: 'arabian_sea', search: 'Tauktae', limit: 1 }).catch(() => ({ items: [] }));
               if (asRes.items?.length > 0) chosenStorm = asRes.items[0];
+              else chosenStorm = historicalEvents.find((h) => h.basin === 'arabian_sea') || null;
             }
           }
 
@@ -439,13 +447,7 @@ export const MarineHazardWorkspace: React.FC = () => {
           </div>
           <div className="lg:col-span-2 space-y-4">
             <HazardSummaryCards
-              activeAlertsCount={
-                liveAlerts.filter((a) =>
-                  activeParams.basin === 'bay_of_bengal'
-                    ? a.basin === 'bay_of_bengal'
-                    : a.basin === 'arabian_sea' || a.basin === 'north_indian'
-                ).length
-              }
+              activeAlertsCount={liveAlerts.length}
               totalHistoricalCount={totalHistoricalCount}
               peakWindKnots={peakWindKnots}
               windCategory={windCategory}

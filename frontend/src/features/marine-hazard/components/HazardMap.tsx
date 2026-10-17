@@ -36,8 +36,14 @@ interface Props {
   douglasState?: string | null;
 }
 
+// Bounding box strictly framing Karnataka's 320km coastal shelf (Uttara Kannada, Udupi, Dakshina Kannada)
+const KARNATAKA_COAST_BOUNDS: [[number, number], [number, number]] = [
+  [70.8, 11.2], // Southwest: Offshore Arabian Sea off Mangaluru / Kasaragod border
+  [76.8, 16.0], // Northeast: Coast / Western Ghats north of Karwar
+];
+
 const DEFAULT_CENTER: [number, number] = [74.50, 13.85]; // Karnataka Coastal Shelf midpoint
-const DEFAULT_ZOOM = 7.0;
+const DEFAULT_ZOOM = 7.7;
 
 // Coastal Wave Buoys & Marine Observatories along Karnataka Coastline & Adjacent Basins
 const REGIONAL_STATIONS: MarineStation[] = [
@@ -275,18 +281,31 @@ export const HazardMap: React.FC<Props> = ({
     return DEFAULT_CENTER;
   }, [centerLon, centerLat]);
 
-  // Filter regional stations relevant to current oceanic basin
+  // Filter regional stations relevant to current oceanic basin (Karnataka Coastal Shelf by default)
   const activeStations = useMemo(() => {
     const isBayOfBengal = (centerLon ?? 74.5) > 80;
     if (isBayOfBengal) {
       return REGIONAL_STATIONS.filter((s) => s.longitude > 80);
     }
-    return REGIONAL_STATIONS.filter((s) => s.longitude <= 80);
+    const isOffshoreDeep = (centerLon ?? 74.5) < 72;
+    if (isOffshoreDeep) {
+      return REGIONAL_STATIONS.filter((s) => s.longitude <= 80);
+    }
+    // Karnataka Coastal Shelf only: exactly the 7 coastal stations along Karnataka
+    return REGIONAL_STATIONS.filter(
+      (s) => s.latitude >= 12.5 && s.latitude <= 15.2 && s.longitude >= 73.8 && s.longitude <= 75.2
+    );
   }, [centerLon]);
 
   // Initialize MapLibre GL instance matching Person 1 & Person 3 styling
   useEffect(() => {
     if (!mapContainerRef.current) return;
+
+    const isKarnataka =
+      effectiveCenter[0] >= 71.5 &&
+      effectiveCenter[0] <= 76.5 &&
+      effectiveCenter[1] >= 11.5 &&
+      effectiveCenter[1] <= 16.0;
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
@@ -313,6 +332,9 @@ export const HazardMap: React.FC<Props> = ({
       },
       center: effectiveCenter,
       zoom: DEFAULT_ZOOM,
+      minZoom: isKarnataka ? 6.9 : 4.5,
+      maxZoom: 14,
+      maxBounds: isKarnataka ? KARNATAKA_COAST_BOUNDS : undefined,
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
@@ -416,16 +438,27 @@ export const HazardMap: React.FC<Props> = ({
     }
 
     // Fly to center matching Person 1 & 3 zoom levels
-    const targetZoom =
-      effectiveCenter[0] > 80
-        ? 6.2
-        : radiusKm > 200
-        ? 6.2
-        : radiusKm > 100
-        ? 7.2
-        : radiusKm > 45
-        ? 8.0
-        : 8.8;
+    const isKarnataka =
+      effectiveCenter[0] >= 71.5 &&
+      effectiveCenter[0] <= 76.5 &&
+      effectiveCenter[1] >= 11.5 &&
+      effectiveCenter[1] <= 16.0;
+
+    if (isKarnataka) {
+      map.setMaxBounds(KARNATAKA_COAST_BOUNDS);
+      map.setMinZoom(6.9);
+    } else {
+      map.setMaxBounds(null as any);
+      map.setMinZoom(4.5);
+    }
+
+    const targetZoom = !isKarnataka
+      ? 6.2
+      : radiusKm > 100
+      ? 7.7
+      : radiusKm > 45
+      ? 8.4
+      : 8.8;
 
     map.flyTo({
       center: effectiveCenter,
@@ -440,10 +473,14 @@ export const HazardMap: React.FC<Props> = ({
     const map = mapRef.current;
     if (!map || !mapReady) return;
 
-    const coordinates =
-      activeLayer === 'cyclone' || validPoints.length > 2
-        ? validPoints.map((p) => [p.longitude, p.latitude])
-        : [];
+    // Show track if Cyclone Layer is active, OR if points traverse the Karnataka Coastal shelf
+    const hasLocalPoints = validPoints.some(
+      (p) => p.latitude >= 11.0 && p.latitude <= 16.5 && p.longitude >= 71.0 && p.longitude <= 76.5
+    );
+
+    const shouldShowTrack = activeLayer === 'cyclone' || (hasLocalPoints && validPoints.length > 2);
+
+    const coordinates = shouldShowTrack ? validPoints.map((p) => [p.longitude, p.latitude]) : [];
 
     const source = map.getSource('hazard-cyclone-track') as maplibregl.GeoJSONSource;
     if (source) {
@@ -458,7 +495,7 @@ export const HazardMap: React.FC<Props> = ({
     }
 
     // Update track visibility
-    const trackVis = activeLayer === 'cyclone' || validPoints.length > 2 ? 'visible' : 'none';
+    const trackVis = shouldShowTrack ? 'visible' : 'none';
     if (map.getLayer('hazard-track-glow') && map.getLayer('hazard-track-core')) {
       map.setLayoutProperty('hazard-track-glow', 'visibility', trackVis);
       map.setLayoutProperty('hazard-track-core', 'visibility', trackVis);
@@ -473,7 +510,7 @@ export const HazardMap: React.FC<Props> = ({
     stationMarkersRef.current.forEach((m) => m.remove());
     stationMarkersRef.current = [];
 
-    activeStations.forEach((st) => {
+    activeStations.forEach((st, idx) => {
       const el = document.createElement('div');
       el.className = 'group cursor-pointer relative';
 
@@ -484,25 +521,49 @@ export const HazardMap: React.FC<Props> = ({
           : st.baseWave;
 
       let metricBadge = `${displayedWave.toFixed(2)}m`;
-      let badgeBg = 'bg-blue-600';
+      let badgeTextColor = 'text-cyan-300';
+      let badgeBorder = 'border-cyan-500/80';
+      let discBorder = 'border-cyan-600';
 
       if (activeLayer === 'douglas') {
         metricBadge = st.douglas.split('(')[0].trim();
-        badgeBg =
+        badgeTextColor =
           displayedWave >= 2.5
-            ? 'bg-red-600'
+            ? 'text-rose-300'
             : displayedWave >= 1.25
-            ? 'bg-amber-600'
-            : 'bg-emerald-600';
+            ? 'text-amber-300'
+            : 'text-emerald-300';
+        badgeBorder =
+          displayedWave >= 2.5
+            ? 'border-rose-500/80'
+            : displayedWave >= 1.25
+            ? 'border-amber-500/80'
+            : 'border-emerald-500/80';
+        discBorder =
+          displayedWave >= 2.5
+            ? 'border-rose-600'
+            : displayedWave >= 1.25
+            ? 'border-amber-600'
+            : 'border-emerald-600';
       }
 
+      // Alternating left/right horizontal tag placement ensures 0% overlap between adjacent stations along coast
+      const isEven = idx % 2 === 0;
+      const shortName = st.name
+        .replace(/Port|Wave Buoy|Wave Station|Marine Observatory|Lighthouse Marine Station|Coastal Observatory|Bar Marine Observatory|Deep Moored Swell Buoy|Deep Ocean Buoy|Marine Buoy/gi, '')
+        .trim();
+
+      const iconSymbol = st.stationType === 'buoy' ? '⚓' : st.stationType === 'bar_station' ? '⚠️' : '🌊';
+
       el.innerHTML = `
-        <div class="flex flex-col items-center">
-          <div class="px-2 py-0.5 rounded-md ${badgeBg} text-white font-mono text-[10.5px] font-bold shadow-md ring-1 ring-white/60 mb-1 whitespace-nowrap transition-transform group-hover:scale-110">
-            ${metricBadge}
+        <div class="flex items-center ${isEven ? 'flex-row-reverse' : 'flex-row'} -translate-x-1/2 -translate-y-1/2 group transition-transform duration-200 hover:scale-110 hover:z-50">
+          <div class="w-6 h-6 rounded-full bg-white border-2 ${discBorder} shadow-md flex items-center justify-center text-[11.5px] shrink-0 z-20 transition-all group-hover:ring-4 group-hover:ring-cyan-400/40">
+            ${iconSymbol}
           </div>
-          <div class="w-6 h-6 rounded-full bg-white border-2 border-cyan-600 shadow-md flex items-center justify-center text-[12px] transition-transform group-hover:scale-125">
-            ${st.stationType === 'buoy' ? '⚓' : st.stationType === 'bar_station' ? '⚠️' : '🌊'}
+          <div class="${isEven ? 'mr-1.5' : 'ml-1.5'} flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/90 text-white shadow-md border ${badgeBorder} backdrop-blur-xs whitespace-nowrap z-10 transition-all">
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0"></span>
+            <span class="font-mono font-bold text-[10.5px] ${badgeTextColor}">${metricBadge}</span>
+            <span class="text-[9px] font-medium text-slate-300 hidden sm:inline">${shortName}</span>
           </div>
         </div>
       `;
@@ -538,7 +599,7 @@ export const HazardMap: React.FC<Props> = ({
     });
   }, [activeStations, activeLayer, significantWaveHeight, mapReady]);
 
-  // Render Cyclone Waypoints when Cyclone Layer or real multi-point track is active
+  // Render Cyclone Waypoints when Cyclone Layer is active
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
@@ -546,8 +607,8 @@ export const HazardMap: React.FC<Props> = ({
     cycloneMarkersRef.current.forEach((m) => m.remove());
     cycloneMarkersRef.current = [];
 
-    // Only render cyclone track markers if real multi-point trajectory exists
-    if (validPoints.length > 1) {
+    // Only render cyclone track waypoint markers if Cyclone tab is active and real trajectory exists
+    if (activeLayer === 'cyclone' && validPoints.length > 1) {
       validPoints.forEach((pt, idx) => {
         const isSelected = selectedPointIndex === idx;
         const isGenesis = idx === 0 && validPoints.length > 1;
@@ -600,13 +661,19 @@ export const HazardMap: React.FC<Props> = ({
         cycloneMarkersRef.current.push(marker);
       });
     }
-  }, [validPoints, mapReady, selectedPointIndex, stormName, onSelectPoint]);
+  }, [validPoints, mapReady, selectedPointIndex, stormName, onSelectPoint, activeLayer]);
 
   const handleResetView = () => {
     if (!mapRef.current) return;
+    const isKarnataka =
+      effectiveCenter[0] >= 71.5 &&
+      effectiveCenter[0] <= 76.5 &&
+      effectiveCenter[1] >= 11.5 &&
+      effectiveCenter[1] <= 16.0;
+
     mapRef.current.flyTo({
       center: effectiveCenter,
-      zoom: effectiveCenter[0] > 80 ? 6.2 : radiusKm > 100 ? 7.2 : 8.0,
+      zoom: isKarnataka ? DEFAULT_ZOOM : 6.2,
       duration: 800,
     });
   };
@@ -705,9 +772,9 @@ export const HazardMap: React.FC<Props> = ({
           <span className="text-slate-300">|</span>
           <span className="flex items-center gap-1 text-[11px] font-medium text-blue-700">
             <span className="w-2 h-2 rounded-full bg-blue-600" />
-            {activeStations.length} Wave Buoys & Stations
+            {activeStations.length} Karnataka Coastal Stations
           </span>
-          {validPoints.length > 1 && (
+          {activeLayer === 'cyclone' && validPoints.length > 1 && (
             <>
               <span className="text-slate-300">|</span>
               <span className="flex items-center gap-1 text-[11px] font-medium text-orange-700">
@@ -780,7 +847,7 @@ export const HazardMap: React.FC<Props> = ({
 
           <div className="flex items-center gap-1.5 text-[9.5px] text-slate-400 pt-1 border-t border-slate-100">
             <span className="w-2 h-2 rounded-full border border-blue-600 bg-white" />
-            <span>{activeStations.length} Moored Wave Buoys & IMD Observatories</span>
+            <span>{activeStations.length} Karnataka Coastal Wave Buoys & Observatories</span>
           </div>
         </div>
       </div>
