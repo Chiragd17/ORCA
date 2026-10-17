@@ -110,46 +110,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenModal }) => {
         </div>
       </div>
 
-      {/* AGENTS HUB Section */}
-      <div className="mb-4">
-        <div className="px-4 py-1.5 flex items-center justify-between">
-          <h3 className="text-[11px] font-bold uppercase tracking-wider text-[#64748b]">
-            Agents Hub
-          </h3>
-          <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-100 text-blue-700 tracking-tight">
-            AI Engine
-          </span>
-        </div>
-        <div className="space-y-1 mt-1">
-          {AGENTS.map((agent) => {
-            const Icon = agent.icon;
-            return (
-              <NavLink
-                key={agent.id}
-                to={agent.path}
-                end={agent.path === '/agents'}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 mx-2.5 px-3 py-2 rounded-xl text-[13.5px] transition-all ${
-                    isActive
-                      ? 'bg-[#e8f1fc] text-[#1d4ed8] font-semibold shadow-xs'
-                      : 'text-[#334155] font-medium hover:bg-[#f1f5f9] hover:text-[#0f172a]'
-                  }`
-                }
-              >
-                <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${agent.iconColor}`} />
-                <span className="truncate flex-1">{agent.label}</span>
-                {agent.isLive && (
-                  <span className="flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 flex-shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    LIVE
-                  </span>
-                )}
-              </NavLink>
-            );
-          })}
-        </div>
-      </div>
-
       {/* WORKSPACES Section */}
       <div className="mb-4">
         <h3 className="px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#64748b]">
@@ -172,6 +132,47 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenModal }) => {
               >
                 <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${ws.iconColor}`} />
                 <span className="truncate">{ws.label}</span>
+              </NavLink>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* AGENTS HUB Section */}
+      <div className="mb-4">
+        <div className="px-4 py-1.5 flex items-center justify-between">
+          <h3 className="text-[11px] font-bold uppercase tracking-wider text-[#64748b]">
+            Agents Hub
+          </h3>
+          <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-100 text-blue-700 tracking-tight">
+            AI Engine
+          </span>
+        </div>
+        <div className="space-y-1 mt-1">
+          {AGENTS.map((agent) => {
+            const Icon = agent.icon;
+            return (
+              <NavLink
+                key={agent.id}
+                to={agent.path}
+                end={agent.path === '/agents'}
+                title={agent.label}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 mx-2.5 px-3 py-2 rounded-xl text-[13.5px] transition-all ${
+                    isActive
+                      ? 'bg-[#e8f1fc] text-[#1d4ed8] font-semibold shadow-xs'
+                      : 'text-[#334155] font-medium hover:bg-[#f1f5f9] hover:text-[#0f172a]'
+                  }`
+                }
+              >
+                <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${agent.iconColor}`} />
+                <span className="truncate flex-1">{agent.label}</span>
+                {agent.isLive && (
+                  <span className="flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 flex-shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    LIVE
+                  </span>
+                )}
               </NavLink>
             );
           })}
