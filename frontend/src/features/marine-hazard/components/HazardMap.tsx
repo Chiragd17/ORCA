@@ -39,7 +39,7 @@ interface Props {
 }
 
 // Regional bounding box framing Karnataka's 320km coastal shelf and regional Arabian Sea waters
-const KARNATAKA_COAST_BOUNDS: [[number, number], [number, number]] = [
+export const KARNATAKA_COAST_BOUNDS: [[number, number], [number, number]] = [
   [64.0, 8.0], // Southwest: Open Arabian Sea off Kerala & Lakshadweep
   [80.0, 20.0], // Northeast: Inland & coastal shelf north of Goa / Maharashtra
 ];
@@ -267,13 +267,6 @@ export const HazardMap: React.FC<Props> = ({
   const handleLayerSelect = (layer: 'waves' | 'douglas' | 'cyclone') => {
     setInternalLayer(layer);
     onLayerChange?.(layer);
-    if (layer === 'waves' || layer === 'douglas') {
-      const map = mapRef.current;
-      if (map) {
-        map.setMaxBounds(KARNATAKA_COAST_BOUNDS);
-        map.setMinZoom(4.8);
-      }
-    }
   };
 
   // Resize MapLibre instance when expanding or minimizing fullscreen map
@@ -316,9 +309,9 @@ export const HazardMap: React.FC<Props> = ({
     // 1. Auto-switch to cyclone track layer
     handleLayerSelect('cyclone');
 
-    // 2. Clear strict maxBounds restriction so the track across the Arabian Sea / Indian Ocean is fully visible
+    // 2. Clear any bounds restriction so user has full freedom to pan anywhere globally
     map.setMaxBounds(null as any);
-    map.setMinZoom(3.5);
+    map.setMinZoom(1.5);
 
     // 3. Compute bounding box for all fixes
     const bounds = new maplibregl.LngLatBounds();
@@ -359,12 +352,6 @@ export const HazardMap: React.FC<Props> = ({
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    const isKarnataka =
-      effectiveCenter[0] >= 71.5 &&
-      effectiveCenter[0] <= 76.5 &&
-      effectiveCenter[1] >= 11.5 &&
-      effectiveCenter[1] <= 16.0;
-
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: {
@@ -390,9 +377,8 @@ export const HazardMap: React.FC<Props> = ({
       },
       center: effectiveCenter,
       zoom: DEFAULT_ZOOM,
-      minZoom: isKarnataka ? 4.8 : 3.5,
-      maxZoom: 16,
-      maxBounds: isKarnataka ? KARNATAKA_COAST_BOUNDS : undefined,
+      minZoom: 1.5,
+      maxZoom: 18,
       attributionControl: false,
     });
 
@@ -503,13 +489,8 @@ export const HazardMap: React.FC<Props> = ({
       effectiveCenter[1] >= 11.5 &&
       effectiveCenter[1] <= 16.0;
 
-    if (isKarnataka) {
-      map.setMaxBounds(KARNATAKA_COAST_BOUNDS);
-      map.setMinZoom(4.8);
-    } else {
-      map.setMaxBounds(null as any);
-      map.setMinZoom(3.5);
-    }
+    map.setMaxBounds(null as any);
+    map.setMinZoom(1.5);
 
     const targetZoom = !isKarnataka
       ? 5.8
@@ -735,10 +716,8 @@ export const HazardMap: React.FC<Props> = ({
       effectiveCenter[1] >= 11.5 &&
       effectiveCenter[1] <= 16.0;
 
-    if (isKarnataka) {
-      mapRef.current.setMaxBounds(KARNATAKA_COAST_BOUNDS);
-      mapRef.current.setMinZoom(4.8);
-    }
+    mapRef.current.setMaxBounds(null as any);
+    mapRef.current.setMinZoom(1.5);
 
     mapRef.current.flyTo({
       center: effectiveCenter,
