@@ -246,22 +246,24 @@ export const CoastalRiskWorkspace: React.FC = () => {
           </div>
         </div>
 
-        {/* Forward Forecast Voyage Decision Support Card */}
-        <VoyageForecastAdvisory
-          lat={activeParams.lat}
-          lon={activeParams.lon}
-          timeRange={activeTimeRange}
-          locationName={
-            activeParams.query.includes('Udupi')
-              ? 'Udupi Central Coast'
-              : activeParams.query.includes('Uttara') || activeParams.query.includes('Karwar')
-              ? 'Uttara Kannada (Karwar) Coast'
-              : activeParams.query.includes('Mangal') || activeParams.query.includes('Dakshina')
-              ? 'Mangaluru & Dakshina Coast'
-              : 'Karnataka Coast'
-          }
-          onForecastDataLoaded={setForecastData}
-        />
+        {/* Forward Forecast Voyage Decision Support Card (Shown strictly for forward forecast durations) */}
+        {activeTimeRange.startsWith('next') && (
+          <VoyageForecastAdvisory
+            lat={activeParams.lat}
+            lon={activeParams.lon}
+            timeRange={activeTimeRange}
+            locationName={
+              activeParams.query.includes('Udupi')
+                ? 'Udupi Central Coast'
+                : activeParams.query.includes('Uttara') || activeParams.query.includes('Karwar')
+                ? 'Uttara Kannada (Karwar) Coast'
+                : activeParams.query.includes('Mangal') || activeParams.query.includes('Dakshina')
+                ? 'Mangaluru & Dakshina Coast'
+                : 'Karnataka Coast'
+            }
+            onForecastDataLoaded={setForecastData}
+          />
+        )}
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
