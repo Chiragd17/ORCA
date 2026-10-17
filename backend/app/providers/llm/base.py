@@ -18,9 +18,9 @@ class LLMResponse(BaseModel):
 
 class BaseLLMProvider(ABC):
     """Abstract base class for all ORCA LLM providers."""
-    provider_name: str
+    provider_name: str = "base"
+    name: str = "base"
 
-    @abstractmethod
     async def generate(
         self,
         messages: List[LLMMessage],
@@ -29,4 +29,21 @@ class BaseLLMProvider(ABC):
         **kwargs
     ) -> LLMResponse:
         """Generate a response using this provider."""
-        pass
+        prompt = "\n".join(m.content for m in messages if m.role == "user")
+        sys_inst = next((m.content for m in messages if m.role == "system"), None)
+        text = await self.generate_text(prompt=prompt, system_instruction=sys_inst, temperature=temperature)
+        return LLMResponse(content=text, provider=getattr(self, "provider_name", "base"), model="default")
+
+    async def generate_text(
+        self,
+        prompt: str,
+        system_instruction: Optional[str] = None,
+        temperature: float = 0.2,
+    ) -> str:
+        """Generate response text for the given prompt."""
+        msgs = []
+        if system_instruction:
+            msgs.append(LLMMessage(role="system", content=system_instruction))
+        msgs.append(LLMMessage(role="user", content=prompt))
+        resp = await self.generate(messages=msgs, temperature=temperature)
+        return resp.content

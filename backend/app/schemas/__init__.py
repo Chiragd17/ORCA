@@ -74,6 +74,6 @@ class InvestigationDetailResponse(BaseModel):
     status: str
     workspace: str
     query: str
-    findings: List[Finding]
-    limitations: List[str]
+    findings: List[Any] = Field(default_factory=list)
+    limitations: List[str] = Field(default_factory=list)
     verification_summary: Optional[VerificationSummary] = None

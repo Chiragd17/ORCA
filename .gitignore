@@ -85,3 +85,6 @@ data/processed/*
 # Logs
 *.log
 logs/
+
+# Scratch & temporary scripts
+scratch/

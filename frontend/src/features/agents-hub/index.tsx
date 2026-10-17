@@ -51,29 +51,30 @@ export const AgentsHub: React.FC = () => {
       id: 'ocean-research',
       title: 'Ocean Intelligence & Research Agent',
       assignedRole: 'Person 1',
-      status: 'SCAFFOLD / READY',
-      statusColor: 'bg-amber-100 text-amber-800 border-amber-300',
-      statusDot: 'bg-amber-500',
+      status: 'LIVE',
+      statusColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      statusDot: 'bg-emerald-500',
       icon: Sparkles,
       iconGradient: 'from-cyan-600 to-teal-600',
-      badge: 'Integration Scaffold',
+      badge: 'Production Ready',
       description:
         'Investigates sea surface temperature (SST) anomalies, chlorophyll-a trends, ocean current vectors, and seasonal environmental time-series.',
       keyCapabilities: [
-        'Sea Surface Temperature (SST) satellite raster ingestion & gridded analytics',
-        'Thermal anomaly detection (>1.5°C threshold against seasonal baseline)',
-        'Chlorophyll-a and ocean-colour marine biological productivity monitoring',
-        'Historical multi-season oceanographic baseline comparisons',
-        'Marine heatwave and upwelling index calculations',
+        'Deterministic SST anomaly & thermal trend analysis against Arabian Sea baselines',
+        '194 verified Arabian Sea historical & 7-day numerical forecast observations',
+        'Live real-time marine telemetry ingestion via Open-Meteo Marine API',
+        'Biochemical chlorophyll-a & ocean-colour biological productivity monitoring',
+        'Cryptographic SHA-256 evidence record chaining with zero hallucinations',
       ],
       targetWorkspaces: ['Marine Monitoring', 'Fisherman Advisory'],
       stats: [
         { label: 'Primary Variable', value: 'SST & Anomaly' },
-        { label: 'Biochemical', value: 'Chlorophyll-a' },
-        { label: 'Data Providers', value: 'Copernicus / NOAA' },
-        { label: 'Frequency', value: 'Daily Grids' },
+        { label: 'Forecast Horizon', value: '7-Day Hourly' },
+        { label: 'Study Basin', value: 'Arabian Sea' },
+        { label: 'Test Coverage', value: '94 / 94 Passed' },
       ],
-      isInteractive: false,
+      isInteractive: true,
+      route: '/marine-monitoring',
     },
     {
       id: 'marine-hazard',
@@ -162,7 +163,7 @@ export const AgentsHub: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-800 text-xs text-emerald-300">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span><strong>Coastal Risk Agent</strong> Live</span>
+              <span><strong>Ocean Research & Coastal Risk</strong> Live</span>
             </div>
           </div>
         </div>

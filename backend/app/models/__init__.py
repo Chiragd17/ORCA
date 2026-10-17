@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     JSON,
     Index,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,12 +21,16 @@ from app.db.base import Base, TimestampMixin
 class DataSource(Base, TimestampMixin):
     """External or curated data source catalog."""
     __tablename__ = "data_sources"
+    __table_args__ = ({"extend_existing": True},)
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
-    provider: Mapped[str] = mapped_column(String(128), nullable=False)
+    provider: Mapped[str] = mapped_column(String(128), default="Open-Meteo", nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    base_url: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     license: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    license_info: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     update_frequency: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
     observations: Mapped[List["MarineObservation"]] = relationship(back_populates="source", cascade="all, delete-orphan")
@@ -36,25 +41,44 @@ class DataSource(Base, TimestampMixin):
 class MarineObservation(Base, TimestampMixin):
     """Physical or oceanographic observation/forecast points."""
     __tablename__ = "marine_observations"
-
-    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid.uuid4()))
-    source_id: Mapped[str] = mapped_column(ForeignKey("data_sources.id"), index=True, nullable=False)
-    latitude: Mapped[float] = mapped_column(Float, nullable=False)
-    longitude: Mapped[float] = mapped_column(Float, nullable=False)
-    observation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
-    retrieval_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    variable: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
-    value: Mapped[float] = mapped_column(Float, nullable=False)
-    unit: Mapped[str] = mapped_column(String(32), nullable=False)
-    quality_flag: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
-    is_forecast: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-
-    source: Mapped["DataSource"] = relationship(back_populates="observations")
-
     __table_args__ = (
         Index("idx_marine_obs_loc_time", "latitude", "longitude", "observation_time"),
         Index("idx_marine_obs_var_time", "variable", "observation_time"),
+        UniqueConstraint(
+            "source_id",
+            "observation_time",
+            "latitude",
+            "longitude",
+            name="uq_marine_obs_source_time_lat_lon",
+        ),
+        {"extend_existing": True},
     )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid.uuid4()))
+    source_id: Mapped[str] = mapped_column(ForeignKey("data_sources.id"), index=True, nullable=False)
+    latitude: Mapped[float] = mapped_column(Float, index=True, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, index=True, nullable=False)
+    observation_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    retrieval_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    variable: Mapped[Optional[str]] = mapped_column(String(64), index=True, nullable=True)
+    value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    unit: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    quality_flag: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    is_forecast: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Wide physical oceanographic variables with explicit physical units
+    sea_surface_temperature_celsius: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    wave_height_meters: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    wave_period_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    wave_direction_degrees: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    ocean_current_velocity_mps: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    ocean_current_direction_degrees: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    wind_speed_knots: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    wind_direction_degrees: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    chlorophyll_mg_m3: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    metadata_json: Mapped[Optional[dict]] = mapped_column(JSON, default=dict)
+
+    source: Mapped["DataSource"] = relationship(back_populates="observations")
 
 
 class HazardEvent(Base, TimestampMixin):

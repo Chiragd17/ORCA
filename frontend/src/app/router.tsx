@@ -26,6 +26,10 @@ export const router = createBrowserRouter([
         element: <CoastalRiskWorkspace />,
       },
       {
+        path: 'agents/ocean-research',
+        element: <MarineMonitoringWorkspace />,
+      },
+      {
         path: 'coastal-risk',
         element: <Navigate to="/agents/coastal-risk" replace />,
       },
