@@ -32,6 +32,7 @@ export const OceanResearchWorkspace: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedStation, setSelectedStation] = useState<OceanStation | null>(null);
+  const [forecastVisible, setForecastVisible] = useState<boolean>(true);
 
   const [activeParams, setActiveParams] = useState({
     query: 'Analyze sea surface temperature, wave dynamics, and ocean currents off Karnataka Coastal Shelf across 7-day forecast horizon against ERA5 climatological baseline.',
@@ -72,6 +73,10 @@ export const OceanResearchWorkspace: React.FC = () => {
             ? 'udupi'
             : 'statewide',
       });
+
+      if (timeHorizon === 'forecast_7d') {
+        setForecastVisible(true);
+      }
 
       setLoading(true);
       setError(null);
@@ -229,13 +234,28 @@ export const OceanResearchWorkspace: React.FC = () => {
           </div>
         </div>
 
-        {/* Forward Marine Forecast & Operational Vessel Advisory */}
-        <OceanForecastAdvisory
-          lat={activeParams.lat}
-          lon={activeParams.lon}
-          timeRange={activeParams.timeHorizon}
-          locationName={activeParams.sector === 'statewide' ? 'Karnataka Coastal Shelf' : activeParams.query}
-        />
+        {/* Forward Marine Forecast & Operational Vessel Advisory - Displayed ONLY when '7-Day Marine Forecast' option is selected */}
+        {activeParams.timeHorizon === 'forecast_7d' && forecastVisible && (
+          <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+            <OceanForecastAdvisory
+              lat={activeParams.lat}
+              lon={activeParams.lon}
+              timeRange={activeParams.timeHorizon}
+              locationName={
+                activeParams.sector === 'statewide'
+                  ? 'Karnataka Coastal Shelf'
+                  : activeParams.sector === 'uttara_kannada'
+                  ? 'Uttara Kannada / Karwar Shelf'
+                  : activeParams.sector === 'udupi'
+                  ? 'Malpe / Udupi Central Shelf'
+                  : activeParams.sector === 'dakshina_kannada'
+                  ? 'Mangaluru / Dakshina Kannada Shelf'
+                  : 'Karnataka Coastal Waters'
+              }
+              onClose={() => setForecastVisible(false)}
+            />
+          </div>
+        )}
 
         {/* Analytics Row - Scientific Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

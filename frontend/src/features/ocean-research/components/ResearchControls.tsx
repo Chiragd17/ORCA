@@ -111,8 +111,14 @@ export const ResearchControls: React.FC<Props> = ({ onRunAnalysis, loading }) =>
 
         {/* Temporal Horizon Selector */}
         <div className="flex-1 min-w-[220px]">
-          <div className="flex items-center gap-2 px-3 py-2 bg-[#f8fafc] border border-slate-200 rounded-xl text-xs text-[#0a1628]">
-            <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
+          <div
+            className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-xs text-[#0a1628] transition-all ${
+              timeHorizon === 'forecast_7d'
+                ? 'bg-blue-50/40 border-blue-400 ring-2 ring-blue-500/20 shadow-2xs'
+                : 'bg-[#f8fafc] border-slate-200'
+            }`}
+          >
+            <Clock className={`w-4 h-4 flex-shrink-0 ${timeHorizon === 'forecast_7d' ? 'text-blue-600' : 'text-slate-500'}`} />
             <select
               value={timeHorizon}
               onChange={(e) => handleHorizonChange(e.target.value)}

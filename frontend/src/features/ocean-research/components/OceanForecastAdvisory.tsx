@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Loader2,
   Info,
+  X,
 } from 'lucide-react';
 
 export interface HourlyForecastPoint {
@@ -57,6 +58,7 @@ interface Props {
   timeRange?: string;
   locationName?: string;
   onForecastDataLoaded?: (data: ForecastResponse | null) => void;
+  onClose?: () => void;
 }
 
 export const OceanForecastAdvisory: React.FC<Props> = ({
@@ -65,6 +67,7 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
   timeRange: _timeRange = 'forecast_7d',
   locationName = 'Karnataka Coast',
   onForecastDataLoaded,
+  onClose,
 }) => {
   const [vesselType, setVesselType] = useState<'traditional' | 'motorized_small' | 'mechanized_trawler'>('motorized_small');
   const [selectedHours, setSelectedHours] = useState<number>(12);
@@ -336,6 +339,18 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#2563eb]' : 'text-slate-500'}`} />
             <span>Refresh Forecast</span>
           </button>
+
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg border border-[#e2e8f0] bg-white text-[#94a3b8] hover:text-[#0f172a] hover:bg-[#f8fafc] transition-all cursor-pointer shadow-2xs"
+              title="Close voyage forecast view"
+              aria-label="Close voyage forecast view"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
