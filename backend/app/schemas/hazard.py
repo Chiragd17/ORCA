@@ -32,6 +32,7 @@ class HazardRead(BaseModel):
 class HazardListResponse(BaseModel):
     count: int
     items: list[HazardRead]
+    hazards: list[HazardRead] = Field(default_factory=list)
     total: int | None = None
     page: int = 1
     limit: int = 20

@@ -137,6 +137,7 @@ def list_hazards(
     return HazardListResponse(
         count=len(items),
         items=items,
+        hazards=items,
         total=total,
         page=page,
         limit=limit,

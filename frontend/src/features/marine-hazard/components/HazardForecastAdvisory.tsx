@@ -110,8 +110,8 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
 
         // Fetch from Open-Meteo marine wave endpoint
         let hourlyList: HourlyForecastPoint[] = [];
-        let peakW = 0.85;
-        let peakG = 22.0;
+        let peakW = 0;
+        let peakG = 0;
         let peakWTime = '';
         let peakGTime = '';
 
@@ -128,8 +128,8 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
             const times: string[] = mRes.hourly.time;
             for (let i = 0; i < Math.min(times.length, fetchHours); i++) {
               const t = times[i];
-              const w = mRes.hourly.wave_height?.[i] ?? 0.8;
-              const g = wRes?.hourly?.wind_gusts_10m?.[i] ?? 20.0;
+              const w = typeof mRes.hourly.wave_height?.[i] === 'number' ? mRes.hourly.wave_height[i] : 0;
+              const g = typeof wRes?.hourly?.wind_gusts_10m?.[i] === 'number' ? wRes.hourly.wind_gusts_10m[i] : 0;
 
               if (w > peakW) {
                 peakW = w;
@@ -150,11 +150,11 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
               hourlyList.push({
                 time: t,
                 wave_height: w,
-                wave_period: mRes.hourly.wave_period?.[i] ?? 7.5,
-                swell_height: mRes.hourly.swell_wave_height?.[i] ?? 0.5,
-                wind_speed: wRes?.hourly?.wind_speed_10m?.[i] ?? 12.0,
+                wave_period: typeof mRes.hourly.wave_period?.[i] === 'number' ? mRes.hourly.wave_period[i] : 7.0,
+                swell_height: typeof mRes.hourly.swell_wave_height?.[i] === 'number' ? mRes.hourly.swell_wave_height[i] : 0.4,
+                wind_speed: typeof wRes?.hourly?.wind_speed_10m?.[i] === 'number' ? wRes.hourly.wind_speed_10m[i] : 0,
                 wind_gusts: g,
-                wind_direction: wRes?.hourly?.wind_direction_10m?.[i] ?? 270,
+                wind_direction: typeof wRes?.hourly?.wind_direction_10m?.[i] === 'number' ? wRes.hourly.wind_direction_10m[i] : 270,
                 risk_tier: tier,
               });
             }
@@ -170,6 +170,8 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
             const d = new Date(now.getTime() + i * 3600000);
             const w = 0.7 + Math.sin(i / 4) * 0.35;
             const g = 18.0 + Math.cos(i / 3) * 6.0;
+            if (w > peakW) peakW = w;
+            if (g > peakG) peakG = g;
             hourlyList.push({
               time: d.toISOString(),
               wave_height: parseFloat(w.toFixed(2)),
@@ -190,6 +192,21 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
             : peakW >= limits.safeW || peakG >= limits.safeG
             ? 'CAUTION_WINDOW'
             : 'FAVORABLE_WINDOW';
+
+        const douglasDescription =
+          peakW < 0.1
+            ? 'Code 0 (Calm-glassy)'
+            : peakW < 0.5
+            ? 'Code 1 (Calm-rippled)'
+            : peakW < 1.25
+            ? 'Code 2-3 (Smooth to Slight)'
+            : peakW < 2.5
+            ? 'Code 4 (Moderate)'
+            : peakW < 4.0
+            ? 'Code 5 (Rough)'
+            : peakW < 6.0
+            ? 'Code 6 (Very Rough)'
+            : 'Code 7+ (High / Severe)';
 
         await minDelay;
 
@@ -213,7 +230,7 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
           favorable_hours_count: favorableCount,
           safe_window_summary: `${favorableCount} of ${fetchHours} hours within safe limits for ${limits.name}`,
           deterioration_summary: overallStatus === 'FAVORABLE_WINDOW' ? 'No adverse squalls or surge expected.' : 'Exercise caution during peak afternoon tidal transitions.',
-          ai_summary: `Forecast for ${limits.name} off ${locationName} over the next ${fetchHours} hours indicates ${overallStatus.toLowerCase().replace('_', ' ')}. Peak significant wave height of ${peakW.toFixed(2)} m with maximum wind gusts of ${peakG.toFixed(1)} km/h. Sea State: Douglas Scale Code 3 (Slight to Moderate). Note: IMD coastal bulletins and Port Officer cautionary signals take legal precedence.`,
+          ai_summary: `Forecast for ${limits.name} off ${locationName} over the next ${fetchHours} hours indicates ${overallStatus.toLowerCase().replace('_', ' ')}. Peak significant wave height of ${peakW.toFixed(2)} m with maximum wind gusts of ${peakG.toFixed(1)} km/h. Sea State: Douglas Scale ${douglasDescription}. Note: IMD coastal bulletins and Port Officer cautionary signals take legal precedence.`,
           disclaimer: 'Operational guidelines are indicative for decision-support. Local bar breaking at estuary mouths and vessel loading can alter risk. Official IMD/INCOIS sea warnings take legal precedence.',
           hourly: hourlyList,
         };

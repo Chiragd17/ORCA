@@ -23,7 +23,7 @@ import {
 export const MarineHazardWorkspace: React.FC = () => {
   const [liveAlerts, setLiveAlerts] = useState<HazardEvent[]>([]);
   const [historicalEvents, setHistoricalEvents] = useState<HazardEvent[]>([]);
-  const [totalHistoricalCount, setTotalHistoricalCount] = useState<number>(1865);
+  const [totalHistoricalCount, setTotalHistoricalCount] = useState<number>(0);
   const [selectedEvent, setSelectedEvent] = useState<HazardEvent | null>(null);
   const [trackPoints, setTrackPoints] = useState<HazardTrackPoint[]>([]);
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
@@ -37,8 +37,8 @@ export const MarineHazardWorkspace: React.FC = () => {
   // Peak metrics for summary cards
   const [peakWindKnots, setPeakWindKnots] = useState<number | null>(null);
   const [windCategory, setWindCategory] = useState<string | null>(null);
-  const [significantWaveHeight, setSignificantWaveHeight] = useState<number | null>(1.12);
-  const [douglasState, setDouglasState] = useState<string | null>('Slight (Code 3)');
+  const [significantWaveHeight, setSignificantWaveHeight] = useState<number | null>(null);
+  const [douglasState, setDouglasState] = useState<string | null>(null);
 
   const [activeParams, setActiveParams] = useState({
     query: 'Analyze marine wave conditions, cyclone hazards, and Douglas sea state off Karnataka Coastal Shelf',
@@ -66,33 +66,73 @@ export const MarineHazardWorkspace: React.FC = () => {
           sortOrder: 'desc',
           page: 1,
           limit: 25,
-        }).catch(() => ({ items: [], count: 1865, total: 1865, page: 1, limit: 25, pages: 75 })),
+        }).catch(() => ({ items: [], count: 0, total: 0, page: 1, limit: 25, pages: 1 })),
       ]);
 
       setLiveAlerts(alertsRes || []);
       setHistoricalEvents(historyRes.items || []);
-      setTotalHistoricalCount(historyRes.total ?? historyRes.count ?? 1865);
+      setTotalHistoricalCount(historyRes.total ?? historyRes.count ?? 0);
 
-      // Auto-select active alert if present, otherwise default to a high-profile historical cyclone (e.g. Tauktae)
-      if (alertsRes && alertsRes.length > 0) {
-        setSelectedEvent(alertsRes[0]);
-        if (alertsRes[0].track_points && alertsRes[0].track_points.length > 0) {
-          setTrackPoints(alertsRes[0].track_points);
+      // Select active regional alert if present (Arabian Sea / Bay of Bengal), otherwise select historical cyclone precedent
+      const regionalAlert = alertsRes?.find(
+        (a) => a.basin === 'arabian_sea' || a.basin === 'bay_of_bengal' || a.basin === 'north_indian'
+      );
+
+      if (regionalAlert) {
+        setSelectedEvent(regionalAlert);
+        if (regionalAlert.track_points && regionalAlert.track_points.length > 0) {
+          setTrackPoints(regionalAlert.track_points);
+          const maxW = Math.max(...regionalAlert.track_points.map((p) => p.wind_speed_knots || 0));
+          if (maxW > 0) {
+            setPeakWindKnots(maxW);
+            setWindCategory(
+              maxW >= 120
+                ? 'Super Cyclone'
+                : maxW >= 90
+                ? 'Extremely Severe (ESCS)'
+                : maxW >= 64
+                ? 'Very Severe (VSCS)'
+                : maxW >= 48
+                ? 'Severe (SCS)'
+                : 'Cyclonic Storm'
+            );
+          }
         }
       } else if (historyRes.items && historyRes.items.length > 0) {
-        // Find Tauktae or use first item
-        const tauktae = historyRes.items.find((h) => h.name.toUpperCase().includes('TAUKTAE')) || historyRes.items[0];
-        setSelectedEvent(tauktae);
+        // Find prominent regional cyclone in the Arabian Sea or use first item
+        const regionalCyclone =
+          historyRes.items.find(
+            (h) => (h.name.toUpperCase().includes('TAUKTAE') || h.basin === 'arabian_sea')
+          ) || historyRes.items[0];
+
+        setSelectedEvent(regionalCyclone);
         try {
-          const trackRes = await hazardApi.fetchHazardTrack(tauktae.hazard_id);
+          const trackRes = await hazardApi.fetchHazardTrack(regionalCyclone.hazard_id);
           setTrackPoints(trackRes.track_points || []);
           if (trackRes.track_points && trackRes.track_points.length > 0) {
             const maxW = Math.max(...trackRes.track_points.map((p) => p.wind_speed_knots || 0));
-            setPeakWindKnots(maxW > 0 ? maxW : 120);
-            setWindCategory(maxW >= 90 ? 'Extremely Severe (ESCS)' : maxW >= 64 ? 'Very Severe (VSCS)' : 'Cyclonic Storm');
+            if (maxW > 0) {
+              setPeakWindKnots(maxW);
+              setWindCategory(
+                maxW >= 120
+                  ? 'Super Cyclone'
+                  : maxW >= 90
+                  ? 'Extremely Severe (ESCS)'
+                  : maxW >= 64
+                  ? 'Very Severe (VSCS)'
+                  : maxW >= 48
+                  ? 'Severe (SCS)'
+                  : 'Cyclonic Storm'
+              );
+            }
           }
         } catch {
           // ignore
+        }
+      } else if (alertsRes && alertsRes.length > 0) {
+        setSelectedEvent(alertsRes[0]);
+        if (alertsRes[0].track_points && alertsRes[0].track_points.length > 0) {
+          setTrackPoints(alertsRes[0].track_points);
         }
       }
     } catch {
@@ -132,37 +172,56 @@ export const MarineHazardWorkspace: React.FC = () => {
 
       setLoading(true);
       setError(null);
+      const minDelay = new Promise((resolve) => setTimeout(resolve, 1800));
 
       try {
         // 1. Fetch latest marine forecast for the sector
         try {
           const marineRes = await hazardApi.fetchMarineForecasts(lat, lon, 0.5, 24);
           if (marineRes.items && marineRes.items.length > 0) {
-            const first = marineRes.items[0];
-            const hs = first.wave_height_m ?? 1.15;
-            setSignificantWaveHeight(hs);
-            setDouglasState(
-              hs < 0.5
-                ? 'Calm (Code 1)'
-                : hs < 1.25
-                ? 'Slight (Code 3)'
-                : hs < 2.5
-                ? 'Moderate (Code 4)'
-                : hs < 4.0
-                ? 'Rough (Code 5)'
-                : 'Very Rough (Code 6)'
-            );
+            const validWaves = marineRes.items
+              .filter((it) => typeof it.wave_height_m === 'number')
+              .map((it) => it.wave_height_m as number);
+
+            if (validWaves.length > 0) {
+              const hs = validWaves[0];
+              setSignificantWaveHeight(hs);
+              setDouglasState(
+                hs < 0.1
+                  ? 'Calm (Code 0)'
+                  : hs < 0.5
+                  ? 'Calm (Code 1)'
+                  : hs < 1.25
+                  ? 'Slight (Code 3)'
+                  : hs < 2.5
+                  ? 'Moderate (Code 4)'
+                  : hs < 4.0
+                  ? 'Rough (Code 5)'
+                  : hs < 6.0
+                  ? 'Very Rough (Code 6)'
+                  : 'High (Code 7+)'
+              );
+            }
           }
         } catch {
-          // fallback
+          // keep existing
         }
 
         // 2. Run agent analysis endpoint
+        const resolvedLocName =
+          lat > 14.2
+            ? 'Karwar / Northern Coastal Shelf'
+            : lat < 13.1
+            ? 'Mangaluru / Southern Coastal Shelf'
+            : lat < 13.7
+            ? 'Malpe / Central Coastal Shelf'
+            : 'Karnataka Coastal Shelf';
+
         const analysisRes = await hazardApi.analyzeHazardAgent({
           query,
           latitude: lat,
           longitude: lon,
-          location_name: 'Karnataka Coastal Shelf',
+          location_name: resolvedLocName,
           radius_km: radiusKm,
         });
 
@@ -173,6 +232,7 @@ export const MarineHazardWorkspace: React.FC = () => {
           setEvidence(analysisRes.evidence);
         }
 
+        await minDelay;
         setLastUpdated(new Date());
       } catch (err: any) {
         if (err.name !== 'AbortError') {
@@ -301,7 +361,9 @@ export const MarineHazardWorkspace: React.FC = () => {
               description={
                 liveAlerts.length > 0
                   ? 'Active international disaster warning logged. Monitor statutory IMD/INCOIS advisories.'
-                  : `Current significant wave height ${significantWaveHeight?.toFixed(2) || '1.12'}m within safe operating parameters for motorized coastal craft. Local bar shoaling requires vigilance.`
+                  : significantWaveHeight !== null
+                  ? `Current significant wave height ${significantWaveHeight.toFixed(2)}m within safe operating parameters for motorized coastal craft. Local bar shoaling requires vigilance.`
+                  : 'Assessing nearshore swell spectra and real-time numerical wave fields for Karnataka Coastal Shelf.'
               }
             />
           </div>
@@ -359,6 +421,8 @@ export const MarineHazardWorkspace: React.FC = () => {
       <div className="hidden xl:block w-[340px] flex-shrink-0 space-y-4">
         <HazardLiveDataStatus
           loading={loading}
+          totalHistoricalCount={totalHistoricalCount}
+          activeAlertCount={liveAlerts.length}
           onRefresh={() => {
             loadInitialData();
             runHazardAnalysis(

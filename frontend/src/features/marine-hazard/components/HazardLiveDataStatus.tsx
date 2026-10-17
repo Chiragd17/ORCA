@@ -15,6 +15,8 @@ import { GDACSStatusResponse, CycloneProviderStatusResponse, MarineProviderStatu
 interface Props {
   onRefresh?: () => void;
   loading?: boolean;
+  totalHistoricalCount?: number;
+  activeAlertCount?: number;
 }
 
 interface ProviderSource {
@@ -34,7 +36,12 @@ interface ProviderSource {
   metrics: { label: string; value: string; detail: string }[];
 }
 
-export const HazardLiveDataStatus: React.FC<Props> = ({ onRefresh, loading = false }) => {
+export const HazardLiveDataStatus: React.FC<Props> = ({
+  onRefresh,
+  loading = false,
+  totalHistoricalCount,
+  activeAlertCount,
+}) => {
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [gdacsStatus, setGdacsStatus] = useState<GDACSStatusResponse | null>(null);
   const [cycloneStatus, setCycloneStatus] = useState<CycloneProviderStatusResponse | null>(null);
@@ -59,6 +66,8 @@ export const HazardLiveDataStatus: React.FC<Props> = ({ onRefresh, loading = fal
     fetchStatuses();
   }, []);
 
+  const effectiveAlertCount = activeAlertCount !== undefined ? activeAlertCount : (gdacsStatus?.active_alerts_count ?? 0);
+
   const sources: ProviderSource[] = [
     {
       id: 'gdacs',
@@ -66,7 +75,7 @@ export const HazardLiveDataStatus: React.FC<Props> = ({ onRefresh, loading = fal
       category: 'Disaster Feeds',
       status: gdacsStatus?.is_healthy ? 'online' : gdacsStatus?.is_fallback ? 'degraded' : 'online',
       provider: 'UN / EC Global Disaster Alert and Coordination System',
-      summary: `${gdacsStatus?.active_alerts_count ?? 0} active regional alerts • GeoJSON live feed`,
+      summary: `${effectiveAlertCount} active disaster alerts • GeoJSON live feed`,
       frequency: 'Every 15 minutes near-realtime feed',
       datum: 'WGS84 Coordinates',
       description: 'Official multi-hazard international disaster monitoring providing cyclone severity and impact polygons.',
@@ -75,7 +84,7 @@ export const HazardLiveDataStatus: React.FC<Props> = ({ onRefresh, loading = fal
       bgColor: 'bg-amber-50',
       borderColor: 'border-amber-100',
       metrics: [
-        { label: 'Active Alerts', value: `${gdacsStatus?.active_alerts_count ?? 0}`, detail: 'Regional storms' },
+        { label: 'Active Alerts', value: `${effectiveAlertCount}`, detail: 'Regional / International' },
         { label: 'Freshness', value: gdacsStatus?.freshness || 'fresh', detail: 'Automated sync' },
       ],
     },
@@ -85,7 +94,9 @@ export const HazardLiveDataStatus: React.FC<Props> = ({ onRefresh, loading = fal
       category: 'Historical Storms',
       status: 'online',
       provider: 'NOAA NCEI International Best Track Archive',
-      summary: '1,865 storms • 62,874 track fixes (1848–2026)',
+      summary: totalHistoricalCount
+        ? `${totalHistoricalCount.toLocaleString()} storms • Verified database archive`
+        : 'Authoritative historical cyclone archive',
       frequency: 'Verified PostgreSQL persistent table',
       datum: 'WGS84 Best-Track Post-Analysis',
       description: 'Global authoritative historical tropical cyclone repository containing verified positions, winds, and central pressures.',
@@ -94,8 +105,12 @@ export const HazardLiveDataStatus: React.FC<Props> = ({ onRefresh, loading = fal
       bgColor: 'bg-blue-50',
       borderColor: 'border-blue-100',
       metrics: [
-        { label: 'Total Storms', value: '1,865', detail: 'North Indian Ocean' },
-        { label: 'Track Fixes', value: '62,874', detail: 'Chronological' },
+        {
+          label: 'Total Storms',
+          value: totalHistoricalCount ? totalHistoricalCount.toLocaleString() : '--',
+          detail: 'North Indian Ocean & Regional',
+        },
+        { label: 'Track Fixes', value: 'Chronological', detail: 'PostgreSQL DB' },
       ],
     },
     {

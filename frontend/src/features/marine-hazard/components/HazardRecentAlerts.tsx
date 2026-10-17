@@ -15,8 +15,18 @@ export const HazardRecentAlerts: React.FC<Props> = ({
 }) => {
   const [selectedEvent, setSelectedEvent] = useState<HazardEvent | null>(null);
 
-  // Combine live alerts first, then prominent historical cyclones
-  const items = liveAlerts.length > 0 ? liveAlerts.slice(0, 5) : historicalEvents.slice(0, 5);
+  // Combine live alerts first (prioritizing regional alerts), then prominent historical cyclones
+  const items = React.useMemo(() => {
+    if (liveAlerts.length > 0) {
+      const sorted = [...liveAlerts].sort((a, b) => {
+        const aLocal = (a.basin === 'arabian_sea' || a.basin === 'bay_of_bengal' || a.basin === 'north_indian') ? 1 : 0;
+        const bLocal = (b.basin === 'arabian_sea' || b.basin === 'bay_of_bengal' || b.basin === 'north_indian') ? 1 : 0;
+        return bLocal - aLocal;
+      });
+      return sorted.slice(0, 5);
+    }
+    return historicalEvents.slice(0, 5);
+  }, [liveAlerts, historicalEvents]);
 
   const getAlertBadge = (ev: HazardEvent) => {
     if (ev.status === 'active') {

@@ -64,9 +64,9 @@ export const HazardSummaryCards: React.FC<Props> = ({
         />
         <StatCard
           icon={<Compass className="w-4 h-4 text-blue-600" />}
-          value={totalHistoricalCount > 0 ? `${totalHistoricalCount.toLocaleString()} Storms` : '1,865 Storms'}
+          value={totalHistoricalCount > 0 ? `${totalHistoricalCount.toLocaleString()} Storms` : loading ? '...' : '--'}
           label="Tracked Cyclones Registry"
-          sublabel="NOAA IBTrACS 1848-2026 Archive"
+          sublabel="NOAA IBTrACS Archive"
           color="bg-blue-50"
           loading={loading}
         />

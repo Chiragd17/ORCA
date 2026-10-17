@@ -134,6 +134,11 @@ export const HazardSpecialistChat: React.FC<Props> = ({
     }
   };
 
+  const activeAssistantTurn = [...messages].reverse().find((m) => m.role === 'assistant' && m.modelUsed);
+  const modelDisplay = activeAssistantTurn
+    ? `${activeAssistantTurn.providerUsed ? `${activeAssistantTurn.providerUsed} ` : ''}${activeAssistantTurn.modelUsed}`
+    : 'Marine Specialist Agent';
+
   return (
     <div className="rounded-2xl bg-white border border-[#d8e4f0] shadow-xs flex flex-col h-[520px] overflow-hidden">
       {/* Header */}
@@ -156,9 +161,9 @@ export const HazardSpecialistChat: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 text-[10.5px] font-mono text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+        <div className="flex items-center gap-1.5 text-[10.5px] font-mono text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
           <Cpu className="w-3 h-3 text-orange-500" />
-          <span>Groq gpt-oss-120b</span>
+          <span>{modelDisplay}</span>
         </div>
       </div>
 
