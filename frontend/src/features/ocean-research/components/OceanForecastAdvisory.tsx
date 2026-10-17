@@ -62,17 +62,17 @@ interface Props {
 export const OceanForecastAdvisory: React.FC<Props> = ({
   lat,
   lon,
-  timeRange = 'forecast_7d',
+  timeRange: _timeRange = 'forecast_7d',
   locationName = 'Karnataka Coast',
   onForecastDataLoaded,
 }) => {
   const [vesselType, setVesselType] = useState<'traditional' | 'motorized_small' | 'mechanized_trawler'>('motorized_small');
+  const [selectedHours, setSelectedHours] = useState<number>(12);
   const [data, setData] = useState<ForecastResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [_error, setError] = useState<string | null>(null);
 
-  // Default to 12 hours for immediate voyage-risk departure planning
-  const hours = timeRange === 'live' ? 12 : timeRange === 'historical' ? 24 : 12;
+  const hours = selectedHours;
 
   const fetchForecast = useCallback(async () => {
     setLoading(true);
@@ -302,16 +302,41 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={fetchForecast}
-          disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#e2e8f0] bg-white text-xs font-medium text-[#475569] hover:bg-[#f8fafc] hover:text-[#0f172a] transition-all cursor-pointer disabled:opacity-50 shadow-2xs self-start sm:self-auto"
-          title="Refresh forecast telemetry"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#2563eb]' : 'text-slate-500'}`} />
-          <span>Refresh Forecast</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {/* Horizon Selection Buttons: 6hrs, 12hrs, 18hrs, 24hrs */}
+          <div className="inline-flex p-0.5 rounded-lg bg-[#f1f5f9] border border-[#e2e8f0]">
+            {[
+              { value: 6, label: '6 hrs' },
+              { value: 12, label: '12 hrs' },
+              { value: 18, label: '18 hrs' },
+              { value: 24, label: '24 hrs' },
+            ].map((hz) => (
+              <button
+                key={hz.value}
+                type="button"
+                onClick={() => setSelectedHours(hz.value)}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                  selectedHours === hz.value
+                    ? 'bg-white text-[#2563eb] shadow-xs'
+                    : 'text-[#64748b] hover:text-[#0f172a]'
+                }`}
+              >
+                {hz.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={fetchForecast}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#e2e8f0] bg-white text-xs font-medium text-[#475569] hover:bg-[#f8fafc] hover:text-[#0f172a] transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
+            title="Refresh forecast telemetry"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#2563eb]' : 'text-slate-500'}`} />
+            <span>Refresh Forecast</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. Select Vessel Class */}
@@ -502,7 +527,7 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
                 </span>
               </div>
               <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-thin">
-                {data.hourly.slice(0, 18).map((h, i) => {
+                {data.hourly.slice(0, selectedHours).map((h, i) => {
                   const isSafe = h.risk_tier === 'FAVORABLE';
                   const isCaution = h.risk_tier === 'CAUTION';
                   return (
