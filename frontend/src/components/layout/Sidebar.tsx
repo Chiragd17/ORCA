@@ -13,6 +13,8 @@ import {
   Database as DbIcon,
   Settings,
   Sparkles,
+  ShieldCheck,
+  Cpu,
 } from 'lucide-react';
 import { ModalType } from './DataModals';
 
@@ -65,7 +67,24 @@ const AGENTS: AgentItem[] = [
     iconColor: 'text-[#0284c7]',
     isLive: true,
   },
+  {
+    id: 'evidence-verification-agent',
+    label: 'Evidence & Scientific Verification',
+    path: '/agents/evidence-verification',
+    icon: ShieldCheck,
+    iconColor: 'text-[#7c3aed]',
+    isLive: true,
+  },
+  {
+    id: 'orchestrator-agent',
+    label: 'ORCA Master Orchestrator',
+    path: '/agents/orchestrator',
+    icon: Cpu,
+    iconColor: 'text-[#4f46e5]',
+    isLive: true,
+  },
 ];
+
 
 const WORKSPACES: WorkspaceItem[] = [
   {

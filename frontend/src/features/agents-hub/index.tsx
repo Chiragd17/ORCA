@@ -109,29 +109,59 @@ export const AgentsHub: React.FC = () => {
       id: 'evidence-verification',
       title: 'Evidence & Scientific Verification Agent',
       assignedRole: 'Person 4',
-      status: 'ACTIVE AUDITOR',
-      statusColor: 'bg-purple-100 text-purple-800 border-purple-300',
-      statusDot: 'bg-purple-500',
+      status: 'LIVE',
+      statusColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      statusDot: 'bg-emerald-500',
       icon: FileCheck,
       iconGradient: 'from-purple-600 to-indigo-600',
-      badge: 'Audit Engine',
+      badge: 'Scientific Auditor',
       description:
-        'Audits investigative findings, enforces cryptographic SHA-256 evidence hash chains, and assigns rigorous scientific verification states.',
+        'Independently verifies scientific claims, evidence provenance, data quality, calculations, source conflicts, and uncertainty.',
       keyCapabilities: [
         'Enforces shared ORCA agent contracts across all specialist outputs',
         'Validates cryptographic SHA-256 hashes against raw retrieved payloads',
         'Checks data freshness, coordinate bounds, and SI physical unit consistency',
         'Detects unsourced or conflicting claims made during investigations',
-        'Assigns explicit verification states: VERIFIED, UNVERIFIED, CONFLICTING',
+        'Assigns standardized verification states: matched, unmet, potential_gap, unverified, conflicting, needs_review',
       ],
       targetWorkspaces: ['Cross-Cutting Layer across ALL Workspaces'],
       stats: [
         { label: 'Integrity', value: 'SHA-256 Hashing' },
-        { label: 'States', value: '4 Audit Grades' },
+        { label: 'States', value: '6 Audit Grades' },
         { label: 'Audit Scope', value: 'All 4 Agents' },
         { label: 'Provenance', value: 'OSM, Census, IMD' },
       ],
-      isInteractive: false,
+      isInteractive: true,
+      route: '/agents/evidence-verification',
+    },
+    {
+      id: 'orchestrator',
+      title: 'ORCA Master Orchestrator Agent',
+      assignedRole: 'Person 5 (Master Orchestrator)',
+      status: 'LIVE',
+      statusColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      statusDot: 'bg-emerald-500',
+      icon: Cpu,
+      iconGradient: 'from-indigo-600 via-purple-600 to-blue-600',
+      badge: 'Master Coordinator',
+      description:
+        'Central orchestration engine autonomously coordinating all 4 specialist agents with structured dependency graphs, concurrent scheduling, mandatory scientific verification, and executive synthesis.',
+      keyCapabilities: [
+        'Dynamic multi-agent intent normalization & capability-based routing',
+        'Asynchronous concurrent specialist scheduling with timeout and bounded retry limits',
+        'Direct integration with Evidence & Scientific Verification Agent (Agent 4)',
+        'Detects and reconciles material discrepancies across competing meteorological feeds',
+        'Dual-tier persistence (PostgreSQL durable storage + low-latency cache)',
+      ],
+      targetWorkspaces: ['Master Coordination Layer across ALL 5 Workspaces'],
+      stats: [
+        { label: 'Coordination', value: 'All 4 Specialists' },
+        { label: 'Scheduling', value: 'Async Concurrency' },
+        { label: 'Audit Grade', value: 'Mandatory Verif' },
+        { label: 'Persistence', value: 'PostgreSQL Engine' },
+      ],
+      isInteractive: true,
+      route: '/agents/orchestrator',
     },
   ];
 
@@ -160,15 +190,16 @@ export const AgentsHub: React.FC = () => {
           <div className="flex flex-row md:flex-col items-center md:items-end gap-3 flex-shrink-0">
             <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span><strong>4</strong> Registered Agents</span>
+              <span><strong>5</strong> Autonomous Agents Active</span>
             </div>
             <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-800 text-xs text-emerald-300">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span><strong>Person 1, 2 & 3 Specialist Agents</strong> Live</span>
+              <span><strong>4 Specialists + Master Orchestrator</strong> Live</span>
             </div>
           </div>
         </div>
       </div>
+
 
       {/* Agents Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

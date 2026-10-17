@@ -6,13 +6,22 @@ from pydantic import BaseModel, Field
 
 class ExecutionEventType(str, Enum):
     INVESTIGATION_STARTED = "investigation_started"
+    PLAN_CREATED = "plan_created"
+    TASK_SCHEDULED = "task_scheduled"
+    DEPENDENCY_RESOLVED = "dependency_resolved"
     AGENT_STARTED = "agent_started"
+    AGENT_RETRY = "agent_retry"
     TOOL_COMPLETED = "tool_completed"
     EVIDENCE_ADDED = "evidence_added"
     AGENT_COMPLETED = "agent_completed"
+    AGENT_FAILED = "agent_failed"
+    VERIFICATION_STARTED = "verification_started"
+    VERIFICATION_GAP_DETECTED = "verification_gap_detected"
+    VERIFICATION_REWORK = "verification_rework"
     VERIFICATION_FAILED = "verification_failed"
     VERIFICATION_PASSED = "verification_passed"
     INVESTIGATION_COMPLETED = "investigation_completed"
+    INVESTIGATION_FAILED = "investigation_failed"
 
 
 class ExecutionEvent(BaseModel):

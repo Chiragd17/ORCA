@@ -26,6 +26,7 @@ class InvestigationTask(BaseModel):
     start_time: Optional[datetime] = Field(None, description="Start of temporal scope (UTC)")
     end_time: Optional[datetime] = Field(None, description="End of temporal scope (UTC)")
     target_time: Optional[datetime] = Field(None, description="Target timestamp (UTC)")
+    location: Optional[str] = Field(None, description="Location name or region if provided")
     parameters: Dict[str, Any] = Field(default_factory=dict, description="Domain-specific parameters")
     context: Dict[str, Any] = Field(default_factory=dict, description="Alternative alias for parameters/context")
 

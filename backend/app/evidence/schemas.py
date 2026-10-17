@@ -110,3 +110,7 @@ class VerificationSummary(BaseModel):
     flagged_findings_count: int
     details: List[FindingVerification] = Field(default_factory=list)
     notes: Optional[str] = None
+
+    @property
+    def total_findings(self) -> int:
+        return len(self.details)

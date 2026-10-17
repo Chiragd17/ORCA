@@ -45,6 +45,17 @@ class ApiClient {
     throw lastError || new Error(`Failed to request ${endpoint}`);
   }
 
+  async get<T>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint);
+  }
+
+  async post<T>(endpoint: string, body?: any): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
   async checkHealth(): Promise<{ status: string; database: string; version: string }> {
     const candidateUrls = [
       this.activeBase.replace('/api/v1', '/health'),

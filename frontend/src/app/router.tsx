@@ -10,6 +10,8 @@ import { AgentsHub } from '../features/agents-hub';
 
 import { OceanResearchWorkspace } from '../features/ocean-research';
 import { MarineHazardWorkspace } from '../features/marine-hazard';
+import { EvidenceVerificationWorkspace } from '../features/evidence-verification';
+import { OrchestratorWorkspace } from '../features/orchestrator';
 
 export const router = createBrowserRouter([
   {
@@ -37,6 +39,18 @@ export const router = createBrowserRouter([
         element: <CoastalRiskWorkspace />,
       },
       {
+        path: 'agents/evidence-verification',
+        element: <EvidenceVerificationWorkspace />,
+      },
+      {
+        path: 'agents/orchestrator',
+        element: <OrchestratorWorkspace />,
+      },
+      {
+        path: 'orchestrator',
+        element: <Navigate to="/agents/orchestrator" replace />,
+      },
+      {
         path: 'ocean-research',
         element: <Navigate to="/agents/ocean-research" replace />,
       },
@@ -48,6 +62,11 @@ export const router = createBrowserRouter([
         path: 'coastal-risk',
         element: <Navigate to="/agents/coastal-risk" replace />,
       },
+      {
+        path: 'evidence-verification',
+        element: <Navigate to="/agents/evidence-verification" replace />,
+      },
+
       {
         path: 'fisherman',
         element: <FishermanWorkspace />,
