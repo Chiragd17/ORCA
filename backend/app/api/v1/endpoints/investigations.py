@@ -191,11 +191,13 @@ async def get_investigation(investigation_id: str = Path(...)):
                     findings_data = [
                         {
                             "id": f.id,
+                            "finding_id": f.id,
                             "claim": f.claim,
                             "value": f.value,
                             "unit": f.unit,
                             "evidence_ids": f.evidence_ids or [],
-                            "verification_state": f.verification_state,
+                            "verification_state": str(f.verification_state or "unverified").lower(),
+                            "verification_status": str(f.verification_state or "unverified").lower(),
                         }
                         for f in inv.findings
                     ]
@@ -209,19 +211,37 @@ async def get_investigation(investigation_id: str = Path(...)):
                         }
                         for e in inv.events
                     ]
+                    
+                    final_answer = getattr(inv, "final_answer", None)
+                    evidence_records = getattr(inv, "evidence", None) or []
+                    limitations = getattr(inv, "limitations", None) or []
+                    verif_summary = getattr(inv, "verification_summary", None)
+                    discrepancies = getattr(inv, "discrepancies", None) or []
+
+                    if not final_answer and findings_data:
+                        final_answer = orchestrator_service._synthesize_final_answer(
+                            query=inv.query,
+                            workspace=inv.workspace,
+                            findings=findings_data,
+                            evidence=evidence_records,
+                            verification_summary=verif_summary,
+                            limitations=limitations,
+                            discrepancies=discrepancies,
+                        )
+
                     return EnrichedInvestigationDetailResponse(
                         investigation_id=inv.id,
                         status=inv.status,
                         workspace=inv.workspace,
                         query=inv.query,
                         findings=findings_data,
-                        evidence=[],
-                        limitations=[],
-                        verification_summary=None,
+                        evidence=evidence_records,
+                        limitations=limitations,
+                        verification_summary=verif_summary,
                         plan=inv.plan,
                         events=events_data,
-                        final_answer=None,
-                        discrepancies=[],
+                        final_answer=final_answer,
+                        discrepancies=discrepancies,
                         storage_tier="postgres_durable",
                         created_at=inv.created_at,
                         completed_at=inv.completed_at,
@@ -233,12 +253,20 @@ async def get_investigation(investigation_id: str = Path(...)):
 
         raise HTTPException(status_code=404, detail=f"Investigation '{investigation_id}' not found.")
 
+    findings_dump = []
+    for f in res.findings:
+        fd = f.model_dump() if hasattr(f, "model_dump") else (dict(f.__dict__) if hasattr(f, "__dict__") else dict(f))
+        v_st = str(fd.get("verification_state") or fd.get("verification_status") or "unverified").lower()
+        fd["verification_state"] = v_st
+        fd["verification_status"] = v_st
+        findings_dump.append(fd)
+
     return EnrichedInvestigationDetailResponse(
         investigation_id=res.investigation_id,
         status=str(res.status),
         workspace=str(res.workspace),
         query=res.query,
-        findings=res.findings,
+        findings=findings_dump,
         evidence=res.evidence,
         limitations=res.limitations,
         verification_summary=res.verification_summary,

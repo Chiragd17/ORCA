@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Ship,
   Waves,
@@ -129,6 +129,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ onOpenModal }) => {
+  const navigate = useNavigate();
   return (
     <nav className="h-full flex flex-col py-3 overflow-y-auto" aria-label="Main navigation">
       {/* Brand Header */}
@@ -223,7 +224,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenModal }) => {
         <div className="space-y-1 mt-0.5">
           <button
             type="button"
-            onClick={() => onOpenModal?.('new_investigation')}
+            onClick={() => {
+              navigate('/agents/orchestrator?launch=true');
+            }}
             className="w-[calc(100%-20px)] flex items-center gap-2.5 mx-2.5 px-3 py-2 rounded-lg text-[12.5px] font-medium text-[#334155] hover:bg-[#f1f5f9] hover:text-[#0f172a] transition-all cursor-pointer text-left group"
           >
             <Plus className="w-4 h-4 flex-shrink-0 text-[#2563eb] group-hover:scale-125 transition-transform" />
@@ -232,7 +235,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenModal }) => {
 
           <button
             type="button"
-            onClick={() => onOpenModal?.('my_investigations')}
+            onClick={() => {
+              navigate('/agents/orchestrator');
+            }}
             className="w-[calc(100%-20px)] flex items-center gap-2.5 mx-2.5 px-3 py-2 rounded-lg text-[12.5px] font-medium text-[#334155] hover:bg-[#f1f5f9] hover:text-[#0f172a] transition-all cursor-pointer text-left group"
           >
             <FileText className="w-4 h-4 flex-shrink-0 text-[#64748b] group-hover:scale-110 transition-transform" />

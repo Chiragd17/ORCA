@@ -161,6 +161,11 @@ class Investigation(Base, TimestampMixin):
     query: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="pending", index=True, nullable=False)
     plan: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    final_answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    verification_summary: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    limitations: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+    discrepancies: Mapped[Optional[List[dict[str, Any]]]] = mapped_column(JSON, nullable=True)
+    evidence: Mapped[Optional[List[dict[str, Any]]]] = mapped_column(JSON, nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     findings: Mapped[List["InvestigationFinding"]] = relationship(back_populates="investigation", cascade="all, delete-orphan")

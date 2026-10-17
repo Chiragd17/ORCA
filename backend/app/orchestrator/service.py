@@ -16,6 +16,17 @@ from app.orchestrator.planner import InvestigationPlanner, ExecutionPlan, PlanSt
 logger = logging.getLogger(__name__)
 
 
+def _clean_state_str(val: Any) -> str:
+    """Returns a normalized uppercase string representation without Enum class prefixes."""
+    if val is None:
+        return "UNVERIFIED"
+    s = val.value if hasattr(val, "value") else str(val)
+    if "." in s:
+        s = s.split(".")[-1]
+    cleaned = s.strip().upper()
+    return cleaned if cleaned else "UNVERIFIED"
+
+
 class OrchestrationResult:
     """Canonical result object returned by the Orchestrator."""
 
@@ -280,10 +291,11 @@ class OrchestratorService:
                 claim_text = getattr(f, "claim", None) or (f.get("claim") if isinstance(f, dict) else str(f))
                 val = getattr(f, "value", None) or (f.get("value") if isinstance(f, dict) else None)
                 unit = getattr(f, "unit", "") or (f.get("unit") if isinstance(f, dict) else "")
-                v_state = getattr(f, "verification_state", None) or (f.get("verification_state") if isinstance(f, dict) else "unverified")
+                v_state = getattr(f, "verification_state", None) or getattr(f, "verification_status", None) or (f.get("verification_state") if isinstance(f, dict) else None) or (f.get("verification_status") if isinstance(f, dict) else "unverified")
                 
+                v_clean = _clean_state_str(v_state)
                 val_str = f" `{val} {unit}`" if val is not None and unit else (f" `{val}`" if val is not None else "")
-                lines.append(f"- **[Finding #{idx}]** {claim_text}{val_str} *(State: {str(v_state).upper()})*")
+                lines.append(f"- **[Finding #{idx}]** {claim_text}{val_str} *(State: {v_clean})*")
 
         # Evidence & Provenance
         lines.append("\n#### 2. Evidence Integrity & Cryptographic Provenance")
@@ -302,19 +314,32 @@ class OrchestratorService:
         # Scientific Verification Outcome
         lines.append("\n#### 3. Scientific Verification Audit")
         if verification_summary:
-            status_str = getattr(verification_summary, "overall_status", None) or (
+            raw_status = getattr(verification_summary, "overall_status", None) or (
                 verification_summary.get("overall_status") if isinstance(verification_summary, dict) else "VERIFIED"
             )
-            v_cnt = getattr(verification_summary, "verified", None) or (
-                verification_summary.get("verified", 0) if isinstance(verification_summary, dict) else 0
+            status_clean = _clean_state_str(raw_status)
+            v_cnt = (
+                getattr(verification_summary, "verified_findings_count", None)
+                or getattr(verification_summary, "verified", None)
+                or (verification_summary.get("verified_findings_count") if isinstance(verification_summary, dict) else None)
+                or (verification_summary.get("verified") if isinstance(verification_summary, dict) else None)
+                or sum(1 for f in findings if _clean_state_str(getattr(f, "verification_state", None) or getattr(f, "verification_status", None) or (f.get("verification_state") if isinstance(f, dict) else None) or (f.get("verification_status") if isinstance(f, dict) else None)) in ("VERIFIED", "MATCHED"))
             )
-            c_cnt = getattr(verification_summary, "conflicting", None) or (
-                verification_summary.get("conflicting", 0) if isinstance(verification_summary, dict) else 0
+            c_cnt = (
+                getattr(verification_summary, "flagged_findings_count", None)
+                or getattr(verification_summary, "conflicting", None)
+                or (verification_summary.get("flagged_findings_count") if isinstance(verification_summary, dict) else None)
+                or (verification_summary.get("conflicting") if isinstance(verification_summary, dict) else None)
+                or sum(1 for f in findings if _clean_state_str(getattr(f, "verification_state", None) or getattr(f, "verification_status", None) or (f.get("verification_state") if isinstance(f, dict) else None) or (f.get("verification_status") if isinstance(f, dict) else None)) in ("CONFLICTING", "NEEDS_REVIEW"))
             )
-            u_cnt = getattr(verification_summary, "unverified", None) or (
-                verification_summary.get("unverified", 0) if isinstance(verification_summary, dict) else 0
+            u_cnt = (
+                getattr(verification_summary, "unverified_findings_count", None)
+                or getattr(verification_summary, "unverified", None)
+                or (verification_summary.get("unverified_findings_count") if isinstance(verification_summary, dict) else None)
+                or (verification_summary.get("unverified") if isinstance(verification_summary, dict) else None)
+                or max(0, len(findings) - v_cnt - c_cnt)
             )
-            lines.append(f"- **Audit Status:** `{str(status_str).upper()}`")
+            lines.append(f"- **Audit Status:** `{status_clean}`")
             lines.append(f"- **Verified Claims:** {v_cnt} | **Cross-Source Conflicts:** {c_cnt} | **Unverified:** {u_cnt}")
         else:
             lines.append("- *Verification summary not available.*")
@@ -349,6 +374,9 @@ class OrchestratorService:
                 inv = db.query(Investigation).filter(Investigation.id == result.investigation_id).first()
                 from fastapi.encoders import jsonable_encoder
                 plan_data = jsonable_encoder(plan.model_dump(mode="json") if hasattr(plan, "model_dump") else plan)
+                verif_summary_data = jsonable_encoder(result.verification_summary.model_dump() if hasattr(result.verification_summary, "model_dump") else result.verification_summary)
+                evidence_data = jsonable_encoder([e.model_dump() if hasattr(e, "model_dump") else e for e in result.evidence])
+
                 if not inv:
                     inv = Investigation(
                         id=result.investigation_id,
@@ -356,12 +384,22 @@ class OrchestratorService:
                         query=result.query,
                         status=str(result.status),
                         plan=plan_data,
+                        final_answer=result.final_answer,
+                        verification_summary=verif_summary_data,
+                        limitations=result.limitations,
+                        discrepancies=result.discrepancies,
+                        evidence=evidence_data,
                         completed_at=result.completed_at,
                     )
                     db.add(inv)
                 else:
                     inv.status = str(result.status)
                     inv.plan = plan_data
+                    inv.final_answer = result.final_answer
+                    inv.verification_summary = verif_summary_data
+                    inv.limitations = result.limitations
+                    inv.discrepancies = result.discrepancies
+                    inv.evidence = evidence_data
                     inv.completed_at = result.completed_at
                 db.flush()
 
@@ -374,8 +412,9 @@ class OrchestratorService:
                     val = getattr(f, "value", None) or (f.get("value") if isinstance(f, dict) else None)
                     unit = getattr(f, "unit", None) or (f.get("unit") if isinstance(f, dict) else None)
                     ev_ids = getattr(f, "evidence_ids", None) or (f.get("evidence_ids") if isinstance(f, dict) else [])
-                    v_state = getattr(f, "verification_state", None) or (f.get("verification_state") if isinstance(f, dict) else "unverified")
-                    
+                    v_state = getattr(f, "verification_state", None) or getattr(f, "verification_status", None) or (f.get("verification_state") if isinstance(f, dict) else None) or (f.get("verification_status") if isinstance(f, dict) else "unverified")
+                    v_clean = _clean_state_str(v_state).lower()
+
                     finding_model = InvestigationFinding(
                         id=f_id,
                         investigation_id=result.investigation_id,
@@ -384,7 +423,7 @@ class OrchestratorService:
                         value=float(val) if val is not None else None,
                         unit=str(unit) if unit else None,
                         evidence_ids=ev_ids,
-                        verification_state=str(v_state.value if hasattr(v_state, "value") else v_state),
+                        verification_state=v_clean,
                     )
                     db.merge(finding_model)
 
@@ -628,6 +667,31 @@ class OrchestratorService:
             for f in all_findings
         ]
         verification_summary = verification_agent.verify(inv_id, findings_dicts, all_evidence)
+
+        # Map granular verification audit results back onto all_findings
+        details_list = getattr(verification_summary, "details", []) or []
+        detail_by_id = {d.finding_id: d for d in details_list if hasattr(d, "finding_id")}
+        for idx, f in enumerate(all_findings):
+            fid = (
+                getattr(f, "finding_id", None)
+                or getattr(f, "id", None)
+                or (f.get("finding_id") if isinstance(f, dict) else None)
+                or (f.get("id") if isinstance(f, dict) else None)
+            )
+            matching_detail = detail_by_id.get(fid)
+            if not matching_detail and idx < len(details_list):
+                matching_detail = details_list[idx]
+
+            if matching_detail:
+                st = getattr(matching_detail, "state", None) or "unverified"
+                clean_st = _clean_state_str(st).lower()
+                if hasattr(f, "verification_state"):
+                    f.verification_state = clean_st
+                if hasattr(f, "verification_status"):
+                    f.verification_status = clean_st
+                if isinstance(f, dict):
+                    f["verification_state"] = clean_st
+                    f["verification_status"] = clean_st
 
         # Inspect Verification State
         passed = False

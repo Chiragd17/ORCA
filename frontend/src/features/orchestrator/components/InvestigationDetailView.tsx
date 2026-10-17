@@ -47,7 +47,7 @@ export const InvestigationDetailView: React.FC<Props> = ({ investigation }) => {
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Specialist Findings ({investigation.findings.length})</span>
+            <span>Specialist Findings ({investigation.findings?.length || 0})</span>
           </button>
 
           <button
@@ -61,7 +61,7 @@ export const InvestigationDetailView: React.FC<Props> = ({ investigation }) => {
           >
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>Scientific Audit</span>
-            {investigation.discrepancies.length > 0 && (
+            {(investigation.discrepancies?.length || 0) > 0 && (
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             )}
           </button>
@@ -76,7 +76,7 @@ export const InvestigationDetailView: React.FC<Props> = ({ investigation }) => {
             }`}
           >
             <Activity className="w-3.5 h-3.5" />
-            <span>Event Stream ({investigation.events.length})</span>
+            <span>Event Stream ({investigation.events?.length || 0})</span>
           </button>
 
           <button
@@ -89,14 +89,14 @@ export const InvestigationDetailView: React.FC<Props> = ({ investigation }) => {
             }`}
           >
             <Database className="w-3.5 h-3.5" />
-            <span>Evidence Records ({investigation.evidence.length})</span>
+            <span>Evidence Records ({investigation.evidence?.length || 0})</span>
           </button>
         </div>
 
         {/* Persistence Status Badge */}
         <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-slate-500 pb-2">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          <span>{investigation.storage_tier.replace('_', ' ').toUpperCase()}</span>
+          <span>{(investigation.storage_tier || 'postgres_durable').replace('_', ' ').toUpperCase()}</span>
         </div>
       </div>
 
@@ -137,21 +137,20 @@ export const InvestigationDetailView: React.FC<Props> = ({ investigation }) => {
         {/* Tab 2: Specialist Findings */}
         {activeTab === 'findings' && (
           <div className="space-y-3">
-            {investigation.findings.length === 0 ? (
+            {(!investigation.findings || investigation.findings.length === 0) ? (
               <div className="text-center py-8 text-slate-400 text-xs">
                 No specialist findings generated.
               </div>
             ) : (
               investigation.findings.map((f, idx) => {
-                const isVerified =
-                  f.verification_state === 'matched' ||
-                  f.verification_state === 'verified' ||
-                  f.verification_state === 'VERIFIED';
-                const isConflicting = f.verification_state === 'conflicting';
+                const rawState = f?.verification_state || (f as any)?.verification_status || (f as any)?.state || 'UNVERIFIED';
+                const cleanState = String(rawState).replace(/^.*verification(state|status)\./i, '').toUpperCase();
+                const isVerified = cleanState === 'VERIFIED' || cleanState === 'MATCHED';
+                const isConflicting = cleanState === 'CONFLICTING' || cleanState === 'NEEDS_REVIEW';
 
                 return (
                   <div
-                    key={idx}
+                    key={f.id || idx}
                     className="p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-200 transition-all flex flex-col sm:flex-row sm:items-start justify-between gap-3 shadow-2xs"
                   >
                     <div className="space-y-1.5 flex-1">
@@ -169,11 +168,11 @@ export const InvestigationDetailView: React.FC<Props> = ({ investigation }) => {
                             isVerified
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : isConflicting
-                              ? 'bg-red-50 text-red-700 border-red-200'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
                               : 'bg-slate-100 text-slate-600 border-slate-200'
                           }`}
                         >
-                          {f.verification_state.toUpperCase()}
+                          {cleanState}
                         </span>
                       </div>
 
@@ -216,7 +215,10 @@ export const InvestigationDetailView: React.FC<Props> = ({ investigation }) => {
                 <div className="text-sm font-extrabold text-purple-950 flex items-center gap-2 mt-0.5">
                   <ShieldCheck className="w-4 h-4 text-purple-600" />
                   <span>
-                    Audit Outcome: {verificationSummary?.overall_status?.toUpperCase() || 'VERIFIED'}
+                    Audit Outcome:{' '}
+                    {String(verificationSummary?.overall_status || 'VERIFIED')
+                      .replace(/^.*verification(state|status)\./i, '')
+                      .toUpperCase()}
                   </span>
                 </div>
               </div>
@@ -224,19 +226,28 @@ export const InvestigationDetailView: React.FC<Props> = ({ investigation }) => {
               <div className="flex items-center gap-3 text-xs">
                 <div className="text-center px-3 py-1 rounded-lg bg-white border border-purple-200">
                   <div className="font-extrabold text-emerald-600">
-                    {verificationSummary?.verified ?? investigation.findings.length}
+                    {verificationSummary?.verified ??
+                      verificationSummary?.verified_findings_count ??
+                      (investigation.findings || []).filter(f => {
+                        const s = String(f?.verification_state || (f as any)?.verification_status || '').toUpperCase();
+                        return s.includes('VERIFIED') || s.includes('MATCHED');
+                      }).length}
                   </div>
                   <div className="text-[10px] text-slate-400">Verified</div>
                 </div>
                 <div className="text-center px-3 py-1 rounded-lg bg-white border border-purple-200">
                   <div className="font-extrabold text-red-600">
-                    {verificationSummary?.conflicting ?? investigation.discrepancies.length}
+                    {verificationSummary?.conflicting ??
+                      verificationSummary?.flagged_findings_count ??
+                      (investigation.discrepancies || []).length}
                   </div>
                   <div className="text-[10px] text-slate-400">Conflicts</div>
                 </div>
                 <div className="text-center px-3 py-1 rounded-lg bg-white border border-purple-200">
                   <div className="font-extrabold text-slate-600">
-                    {verificationSummary?.unverified ?? 0}
+                    {verificationSummary?.unverified ??
+                      verificationSummary?.unverified_findings_count ??
+                      0}
                   </div>
                   <div className="text-[10px] text-slate-400">Unverified</div>
                 </div>
@@ -260,16 +271,16 @@ export const InvestigationDetailView: React.FC<Props> = ({ investigation }) => {
         {/* Tab 4: Chronological Event Stream */}
         {activeTab === 'events' && (
           <div className="space-y-2 font-mono text-xs">
-            {investigation.events.length === 0 ? (
+            {(!investigation.events || investigation.events.length === 0) ? (
               <div className="text-center py-8 text-slate-400">No events recorded.</div>
             ) : (
-              investigation.events.map((ev, idx) => (
+              (investigation.events || []).map((ev, idx) => (
                 <div
-                  key={idx}
+                  key={ev.id || idx}
                   className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 flex items-start gap-3"
                 >
                   <span className="text-[10px] text-slate-400 whitespace-nowrap">
-                    {new Date(ev.timestamp).toLocaleTimeString()}
+                    {ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString() : '--:--:--'}
                   </span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 whitespace-nowrap">
                     {ev.event_type}
@@ -291,14 +302,14 @@ export const InvestigationDetailView: React.FC<Props> = ({ investigation }) => {
         {/* Tab 5: Collected Evidence Records */}
         {activeTab === 'evidence' && (
           <div className="space-y-2">
-            {investigation.evidence.length === 0 ? (
+            {(!investigation.evidence || investigation.evidence.length === 0) ? (
               <div className="text-center py-8 text-slate-400 text-xs">
                 Evidence records dynamically cached in shared EvidenceRegistry.
               </div>
             ) : (
-              investigation.evidence.map((ev, idx) => (
+              (investigation.evidence || []).map((ev, idx) => (
                 <div
-                  key={idx}
+                  key={ev.id || idx}
                   className="p-3 rounded-xl border border-slate-200 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
                 >
                   <div className="space-y-0.5">

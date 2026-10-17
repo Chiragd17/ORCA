@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../../lib/api-client';
 import {
   OrchestratorStats,
@@ -16,6 +17,7 @@ import { InvestigationLauncher } from './components/InvestigationLauncher';
 import { AlertCircle } from 'lucide-react';
 
 export const OrchestratorWorkspace: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [stats, setStats] = useState<OrchestratorStats | null>(null);
   const [investigations, setInvestigations] = useState<InvestigationListItem[]>([]);
   const [currentInvestigation, setCurrentInvestigation] = useState<EnrichedInvestigationDetail | null>(null);
@@ -24,6 +26,21 @@ export const OrchestratorWorkspace: React.FC = () => {
   const [launcherOpen, setLauncherOpen] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>('');
+
+  useEffect(() => {
+    if (searchParams.get('launch') === 'true') {
+      setLauncherOpen(true);
+    }
+  }, [searchParams]);
+
+  const handleCloseLauncher = () => {
+    setLauncherOpen(false);
+    if (searchParams.get('launch') === 'true') {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('launch');
+      setSearchParams(nextParams, { replace: true });
+    }
+  };
 
   const loadData = useCallback(async (selectId?: string) => {
     setLoading(true);
@@ -37,13 +54,19 @@ export const OrchestratorWorkspace: React.FC = () => {
       if (statsRes) setStats(statsRes);
       if (listRes) setInvestigations(listRes);
 
-
       // Determine which investigation to display
       const targetId = selectId || (listRes && listRes.length > 0 ? listRes[0].investigation_id : null);
       if (targetId) {
         const detail = await apiClient.get<EnrichedInvestigationDetail>(`/orchestrator/${targetId}`).catch(() => null);
         if (detail) {
-          setCurrentInvestigation(detail);
+          setCurrentInvestigation({
+            ...detail,
+            findings: detail.findings || [],
+            events: detail.events || [],
+            evidence: detail.evidence || [],
+            discrepancies: detail.discrepancies || [],
+            limitations: detail.limitations || [],
+          });
         }
       }
 
@@ -65,7 +88,14 @@ export const OrchestratorWorkspace: React.FC = () => {
     try {
       const detail = await apiClient.get<EnrichedInvestigationDetail>(`/orchestrator/${id}`);
       if (detail) {
-        setCurrentInvestigation(detail);
+        setCurrentInvestigation({
+          ...detail,
+          findings: detail.findings || [],
+          events: detail.events || [],
+          evidence: detail.evidence || [],
+          discrepancies: detail.discrepancies || [],
+          limitations: detail.limitations || [],
+        });
       }
     } catch (err) {
       console.error('Failed to load investigation detail:', err);
@@ -152,7 +182,7 @@ export const OrchestratorWorkspace: React.FC = () => {
       {/* Launch Investigation Modal */}
       <InvestigationLauncher
         isOpen={launcherOpen}
-        onClose={() => setLauncherOpen(false)}
+        onClose={handleCloseLauncher}
         onSubmit={handleLaunchInvestigation}
         loading={running}
       />
