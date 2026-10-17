@@ -104,7 +104,6 @@ export const CoastalMap: React.FC<Props> = ({ evidence, findings: _findings, loa
     });
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
-    map.addControl(new maplibregl.ScaleControl({ maxWidth: 150 }), 'bottom-left');
 
     map.on('load', () => {
       setMapReady(true);
