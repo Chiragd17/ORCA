@@ -202,6 +202,30 @@ export const MarineHazardWorkspace: React.FC = () => {
                   : 'High (Code 7+)'
               );
             }
+          } else {
+            // Live direct query to Open-Meteo Marine API
+            const mLive = await fetch(
+              `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&hourly=wave_height&forecast_hours=6&timezone=auto`
+            ).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+            if (mLive?.hourly?.wave_height && mLive.hourly.wave_height.length > 0) {
+              const hs = mLive.hourly.wave_height[0];
+              setSignificantWaveHeight(hs);
+              setDouglasState(
+                hs < 0.1
+                  ? 'Calm (Code 0)'
+                  : hs < 0.5
+                  ? 'Calm (Code 1)'
+                  : hs < 1.25
+                  ? 'Slight (Code 3)'
+                  : hs < 2.5
+                  ? 'Moderate (Code 4)'
+                  : hs < 4.0
+                  ? 'Rough (Code 5)'
+                  : hs < 6.0
+                  ? 'Very Rough (Code 6)'
+                  : 'High (Code 7+)'
+              );
+            }
           }
         } catch {
           // keep existing
