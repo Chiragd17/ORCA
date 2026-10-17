@@ -527,6 +527,12 @@ export const MarineHazardWorkspace: React.FC = () => {
         <HazardLiveDataStatus
           loading={loading}
           activeAlertCount={liveAlerts.length}
+          significantWaveHeight={significantWaveHeight}
+          douglasState={douglasState}
+          peakWindKnots={peakWindKnots}
+          sectorName={activeParams.presetName}
+          centerLat={activeParams.lat}
+          centerLon={activeParams.lon}
           onRefresh={() => {
             loadInitialData();
             runHazardAnalysis(
