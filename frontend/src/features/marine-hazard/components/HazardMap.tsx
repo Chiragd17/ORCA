@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Compass, RotateCcw, Waves, ShieldCheck, Wind } from 'lucide-react';
+import { Compass, RotateCcw, Waves, ShieldCheck, Wind, ChevronDown, ChevronUp, Maximize2, Minimize2 } from 'lucide-react';
 import { HazardTrackPoint } from '../types';
 
 export interface MarineStation {
@@ -36,14 +36,14 @@ interface Props {
   douglasState?: string | null;
 }
 
-// Bounding box strictly framing Karnataka's 320km coastal shelf (Uttara Kannada, Udupi, Dakshina Kannada)
+// Regional bounding box framing Karnataka's 320km coastal shelf and regional Arabian Sea waters
 const KARNATAKA_COAST_BOUNDS: [[number, number], [number, number]] = [
-  [70.8, 11.2], // Southwest: Offshore Arabian Sea off Mangaluru / Kasaragod border
-  [76.8, 16.0], // Northeast: Coast / Western Ghats north of Karwar
+  [64.0, 8.0], // Southwest: Open Arabian Sea off Kerala & Lakshadweep
+  [80.0, 20.0], // Northeast: Inland & coastal shelf north of Goa / Maharashtra
 ];
 
 const DEFAULT_CENTER: [number, number] = [74.50, 13.85]; // Karnataka Coastal Shelf midpoint
-const DEFAULT_ZOOM = 7.7;
+const DEFAULT_ZOOM = 7.2;
 
 // Coastal Wave Buoys & Marine Observatories along Karnataka Coastline & Adjacent Basins
 const REGIONAL_STATIONS: MarineStation[] = [
@@ -255,6 +255,17 @@ export const HazardMap: React.FC<Props> = ({
   const [mapReady, setMapReady] = useState(false);
   const [activeLayer, setActiveLayer] = useState<'waves' | 'douglas' | 'cyclone'>('waves');
   const [showBufferCircle, setShowBufferCircle] = useState(true);
+  const [legendMinimized, setLegendMinimized] = useState(false);
+  const [overlayPillMinimized, setOverlayPillMinimized] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Resize MapLibre instance when expanding or minimizing fullscreen map
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      mapRef.current?.resize();
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [isFullscreen]);
 
   // Filter valid geographic coordinates only
   const validPoints = useMemo(() => {
@@ -332,8 +343,8 @@ export const HazardMap: React.FC<Props> = ({
       },
       center: effectiveCenter,
       zoom: DEFAULT_ZOOM,
-      minZoom: isKarnataka ? 6.9 : 4.5,
-      maxZoom: 14,
+      minZoom: isKarnataka ? 4.8 : 3.5,
+      maxZoom: 16,
       maxBounds: isKarnataka ? KARNATAKA_COAST_BOUNDS : undefined,
     });
 
@@ -446,18 +457,18 @@ export const HazardMap: React.FC<Props> = ({
 
     if (isKarnataka) {
       map.setMaxBounds(KARNATAKA_COAST_BOUNDS);
-      map.setMinZoom(6.9);
+      map.setMinZoom(4.8);
     } else {
       map.setMaxBounds(null as any);
-      map.setMinZoom(4.5);
+      map.setMinZoom(3.5);
     }
 
     const targetZoom = !isKarnataka
-      ? 6.2
+      ? 5.8
       : radiusKm > 100
-      ? 7.7
+      ? 7.2
       : radiusKm > 45
-      ? 8.4
+      ? 8.2
       : 8.8;
 
     map.flyTo({
@@ -673,13 +684,19 @@ export const HazardMap: React.FC<Props> = ({
 
     mapRef.current.flyTo({
       center: effectiveCenter,
-      zoom: isKarnataka ? DEFAULT_ZOOM : 6.2,
+      zoom: isKarnataka ? DEFAULT_ZOOM : 5.8,
       duration: 800,
     });
   };
 
   return (
-    <div className={`rounded-2xl bg-white border border-[#d8e4f0] shadow-xs overflow-hidden flex flex-col ${className}`}>
+    <div
+      className={`${
+        isFullscreen
+          ? 'fixed inset-4 z-50 rounded-2xl bg-white border border-[#d8e4f0] shadow-2xl overflow-hidden flex flex-col'
+          : `rounded-2xl bg-white border border-[#d8e4f0] shadow-xs overflow-hidden flex flex-col ${className}`
+      }`}
+    >
       {/* Top Map Header & Controls matching Person 1 & Person 3 */}
       <div className="p-3 bg-white border-b border-[#e2e8f0] flex flex-wrap items-center justify-between gap-2 z-10">
         <div className="flex items-center gap-2">
@@ -747,6 +764,18 @@ export const HazardMap: React.FC<Props> = ({
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
+            <button
+              type="button"
+              onClick={() => setIsFullscreen((prev) => !prev)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              title={isFullscreen ? 'Minimize map to normal card' : 'Maximize map view'}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="w-3.5 h-3.5 text-blue-600" />
+              ) : (
+                <Maximize2 className="w-3.5 h-3.5" />
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -755,35 +784,56 @@ export const HazardMap: React.FC<Props> = ({
       <div className="relative flex-1 w-full h-full min-h-[380px]">
         <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
-        {/* Top Filter Overlay Pill Bar matching Person 3 (CoastalMap) */}
-        <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-xs border border-slate-200/90 rounded-xl px-3 py-1.5 shadow-sm text-xs z-10 flex items-center gap-3 text-slate-700 pointer-events-auto">
-          <label className="flex items-center gap-1.5 text-[11px] font-medium cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showBufferCircle}
-              onChange={(e) => setShowBufferCircle(e.target.checked)}
-              className="rounded text-cyan-600 focus:ring-0 cursor-pointer w-3.5 h-3.5"
-            />
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-full border border-cyan-500 border-dashed" />
-              Buffer Zone ({radiusKm} km)
-            </span>
-          </label>
-          <span className="text-slate-300">|</span>
-          <span className="flex items-center gap-1 text-[11px] font-medium text-blue-700">
+        {/* Top Filter Overlay Pill Bar with Minimize Toggle */}
+        {overlayPillMinimized ? (
+          <button
+            type="button"
+            onClick={() => setOverlayPillMinimized(false)}
+            className="absolute top-3 left-3 bg-white/95 backdrop-blur-xs border border-slate-200/90 rounded-xl px-2.5 py-1 shadow-sm text-[11px] font-semibold z-10 flex items-center gap-1.5 text-slate-700 hover:bg-slate-50 cursor-pointer pointer-events-auto"
+            title="Expand Filters"
+          >
             <span className="w-2 h-2 rounded-full bg-blue-600" />
-            {activeStations.length} Karnataka Coastal Stations
-          </span>
-          {activeLayer === 'cyclone' && validPoints.length > 1 && (
-            <>
-              <span className="text-slate-300">|</span>
-              <span className="flex items-center gap-1 text-[11px] font-medium text-orange-700">
-                <span className="w-2 h-2 rounded-full bg-orange-600" />
-                {stormName} ({validPoints.length} fixes)
+            <span>7 Stations • {radiusKm}km Buffer</span>
+            <ChevronDown className="w-3 h-3 text-slate-400" />
+          </button>
+        ) : (
+          <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-xs border border-slate-200/90 rounded-xl px-3 py-1.5 shadow-sm text-xs z-10 flex items-center gap-2.5 text-slate-700 pointer-events-auto">
+            <label className="flex items-center gap-1.5 text-[11px] font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showBufferCircle}
+                onChange={(e) => setShowBufferCircle(e.target.checked)}
+                className="rounded text-cyan-600 focus:ring-0 cursor-pointer w-3.5 h-3.5"
+              />
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-full border border-cyan-500 border-dashed" />
+                Buffer Zone ({radiusKm} km)
               </span>
-            </>
-          )}
-        </div>
+            </label>
+            <span className="text-slate-300">|</span>
+            <span className="flex items-center gap-1 text-[11px] font-medium text-blue-700">
+              <span className="w-2 h-2 rounded-full bg-blue-600" />
+              {activeStations.length} Karnataka Coastal Stations
+            </span>
+            {activeLayer === 'cyclone' && validPoints.length > 1 && (
+              <>
+                <span className="text-slate-300">|</span>
+                <span className="flex items-center gap-1 text-[11px] font-medium text-orange-700">
+                  <span className="w-2 h-2 rounded-full bg-orange-600" />
+                  {stormName} ({validPoints.length} fixes)
+                </span>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => setOverlayPillMinimized(true)}
+              className="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition ml-1 cursor-pointer"
+              title="Minimize filter overlay"
+            >
+              <ChevronUp className="w-3 h-3" />
+            </button>
+          </div>
+        )}
 
         {/* Loading Overlay */}
         {isLoading && (
@@ -793,63 +843,92 @@ export const HazardMap: React.FC<Props> = ({
           </div>
         )}
 
-        {/* Bottom Legend Overlay matching Person 1 (OceanMap) */}
-        <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs border border-slate-200/90 rounded-xl p-2.5 shadow-md text-xs space-y-1.5 z-10 pointer-events-auto max-w-[260px]">
-          <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-700">
-            <span>
+        {/* Bottom Legend Overlay with Minimize Toggle */}
+        {legendMinimized ? (
+          <button
+            type="button"
+            onClick={() => setLegendMinimized(false)}
+            className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs border border-slate-200/90 rounded-xl px-2.5 py-1.5 shadow-sm text-xs z-10 flex items-center gap-1.5 text-slate-700 hover:bg-slate-50 cursor-pointer pointer-events-auto"
+            title="Expand Legend"
+          >
+            <Waves className="w-3.5 h-3.5 text-blue-600" />
+            <span className="text-[10.5px] font-semibold">
               {activeLayer === 'waves'
-                ? 'Significant Wave Height (m)'
+                ? 'Wave Height Legend'
                 : activeLayer === 'douglas'
-                ? 'Douglas Sea State Scale'
-                : 'Storm Intensity (IMD / Saffir-Simpson)'}
+                ? 'Sea State Legend'
+                : 'Cyclone Legend'}
             </span>
-            <span className="text-[10px] text-blue-600 font-semibold flex items-center gap-1">
-              {activeLayer === 'waves' ? <Waves className="w-3 h-3" /> : activeLayer === 'douglas' ? <ShieldCheck className="w-3 h-3" /> : <Wind className="w-3 h-3" />}
-              Active
-            </span>
+            <ChevronUp className="w-3 h-3 text-slate-400" />
+          </button>
+        ) : (
+          <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs border border-slate-200/90 rounded-xl p-2.5 shadow-md text-xs space-y-1.5 z-10 pointer-events-auto max-w-[260px]">
+            <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-700">
+              <span>
+                {activeLayer === 'waves'
+                  ? 'Significant Wave Height (m)'
+                  : activeLayer === 'douglas'
+                  ? 'Douglas Sea State Scale'
+                  : 'Storm Intensity (IMD / Saffir-Simpson)'}
+              </span>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-blue-600 font-semibold flex items-center gap-1">
+                  {activeLayer === 'waves' ? <Waves className="w-3 h-3" /> : activeLayer === 'douglas' ? <ShieldCheck className="w-3 h-3" /> : <Wind className="w-3 h-3" />}
+                  Active
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setLegendMinimized(true)}
+                  className="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition ml-0.5 cursor-pointer"
+                  title="Minimize Legend"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {activeLayer === 'waves' && (
+              <div>
+                <div className="h-2 w-full rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 via-amber-500 to-rose-600" />
+                <div className="flex justify-between text-[9px] text-slate-500 font-mono mt-0.5">
+                  <span>&lt;0.5m (Calm)</span>
+                  <span>1.25m (Slight)</span>
+                  <span>2.5m (Mod)</span>
+                  <span>4.0m+ (Rough)</span>
+                </div>
+              </div>
+            )}
+
+            {activeLayer === 'douglas' && (
+              <div>
+                <div className="h-2 w-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-500 via-amber-500 to-red-600" />
+                <div className="flex justify-between text-[9px] text-slate-500 font-mono mt-0.5">
+                  <span>Code 1 (Calm)</span>
+                  <span>Code 3 (Slight)</span>
+                  <span>Code 5 (Rough)</span>
+                  <span>Code 7+</span>
+                </div>
+              </div>
+            )}
+
+            {activeLayer === 'cyclone' && (
+              <div>
+                <div className="h-2 w-full rounded-full bg-gradient-to-r from-blue-500 via-sky-400 via-amber-400 via-orange-500 to-red-600" />
+                <div className="flex justify-between text-[9px] text-slate-500 font-mono mt-0.5">
+                  <span>&lt;34kt (Depr)</span>
+                  <span>48kt (SCS)</span>
+                  <span>64kt (VSCS)</span>
+                  <span>90+kt (ESCS)</span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5 text-[9.5px] text-slate-400 pt-1 border-t border-slate-100">
+              <span className="w-2 h-2 rounded-full border border-blue-600 bg-white" />
+              <span>{activeStations.length} Karnataka Coastal Wave Buoys & Observatories</span>
+            </div>
           </div>
-
-          {activeLayer === 'waves' && (
-            <div>
-              <div className="h-2 w-full rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 via-amber-500 to-rose-600" />
-              <div className="flex justify-between text-[9px] text-slate-500 font-mono mt-0.5">
-                <span>&lt;0.5m (Calm)</span>
-                <span>1.25m (Slight)</span>
-                <span>2.5m (Mod)</span>
-                <span>4.0m+ (Rough)</span>
-              </div>
-            </div>
-          )}
-
-          {activeLayer === 'douglas' && (
-            <div>
-              <div className="h-2 w-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-500 via-amber-500 to-red-600" />
-              <div className="flex justify-between text-[9px] text-slate-500 font-mono mt-0.5">
-                <span>Code 1 (Calm)</span>
-                <span>Code 3 (Slight)</span>
-                <span>Code 5 (Rough)</span>
-                <span>Code 7+</span>
-              </div>
-            </div>
-          )}
-
-          {activeLayer === 'cyclone' && (
-            <div>
-              <div className="h-2 w-full rounded-full bg-gradient-to-r from-blue-500 via-sky-400 via-amber-400 via-orange-500 to-red-600" />
-              <div className="flex justify-between text-[9px] text-slate-500 font-mono mt-0.5">
-                <span>&lt;34kt (Depr)</span>
-                <span>48kt (SCS)</span>
-                <span>64kt (VSCS)</span>
-                <span>90+kt (ESCS)</span>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center gap-1.5 text-[9.5px] text-slate-400 pt-1 border-t border-slate-100">
-            <span className="w-2 h-2 rounded-full border border-blue-600 bg-white" />
-            <span>{activeStations.length} Karnataka Coastal Wave Buoys & Observatories</span>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
