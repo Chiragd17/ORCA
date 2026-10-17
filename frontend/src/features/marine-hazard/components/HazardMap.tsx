@@ -34,6 +34,8 @@ interface Props {
   radiusKm?: number;
   significantWaveHeight?: number | null;
   douglasState?: string | null;
+  activeLayer?: 'waves' | 'douglas' | 'cyclone';
+  onLayerChange?: (layer: 'waves' | 'douglas' | 'cyclone') => void;
 }
 
 // Regional bounding box framing Karnataka's 320km coastal shelf and regional Arabian Sea waters
@@ -232,7 +234,7 @@ const getIntensityColor = (windKnots: number | null | undefined, category: strin
 
 export const HazardMap: React.FC<Props> = ({
   stormName,
-  stormId: _stormId,
+  stormId,
   basin: _basin,
   trackPoints,
   isLoading,
@@ -247,17 +249,32 @@ export const HazardMap: React.FC<Props> = ({
   radiusKm = 160,
   significantWaveHeight,
   douglasState: _douglasState,
+  activeLayer: activeLayerProp,
+  onLayerChange,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const cycloneMarkersRef = useRef<maplibregl.Marker[]>([]);
   const stationMarkersRef = useRef<maplibregl.Marker[]>([]);
   const [mapReady, setMapReady] = useState(false);
-  const [activeLayer, setActiveLayer] = useState<'waves' | 'douglas' | 'cyclone'>('waves');
+  const [internalLayer, setInternalLayer] = useState<'waves' | 'douglas' | 'cyclone'>('waves');
+  const activeLayer = activeLayerProp !== undefined ? activeLayerProp : internalLayer;
   const [showBufferCircle, setShowBufferCircle] = useState(true);
   const [legendMinimized, setLegendMinimized] = useState(false);
   const [overlayPillMinimized, setOverlayPillMinimized] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const handleLayerSelect = (layer: 'waves' | 'douglas' | 'cyclone') => {
+    setInternalLayer(layer);
+    onLayerChange?.(layer);
+    if (layer === 'waves' || layer === 'douglas') {
+      const map = mapRef.current;
+      if (map) {
+        map.setMaxBounds(KARNATAKA_COAST_BOUNDS);
+        map.setMinZoom(4.8);
+      }
+    }
+  };
 
   // Resize MapLibre instance when expanding or minimizing fullscreen map
   useEffect(() => {
@@ -284,6 +301,36 @@ export const HazardMap: React.FC<Props> = ({
         !(p.latitude === 0 && p.longitude === 0)
     );
   }, [trackPoints]);
+
+  const lastLoadedTrackRef = useRef<string | null>(null);
+
+  // Auto-switch to cyclone layer & fit camera to storm track when new track points are loaded
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || validPoints.length === 0) return;
+
+    const trackKey = `${stormId}_${validPoints.length}_${validPoints[0]?.latitude}_${validPoints[0]?.longitude}`;
+    if (lastLoadedTrackRef.current === trackKey) return;
+    lastLoadedTrackRef.current = trackKey;
+
+    // 1. Auto-switch to cyclone track layer
+    handleLayerSelect('cyclone');
+
+    // 2. Clear strict maxBounds restriction so the track across the Arabian Sea / Indian Ocean is fully visible
+    map.setMaxBounds(null as any);
+    map.setMinZoom(3.5);
+
+    // 3. Compute bounding box for all fixes
+    const bounds = new maplibregl.LngLatBounds();
+    validPoints.forEach((p) => bounds.extend([p.longitude, p.latitude]));
+
+    // 4. Smoothly fit camera to frame the entire trajectory
+    map.fitBounds(bounds, {
+      padding: { top: 60, bottom: 60, left: 60, right: 60 },
+      maxZoom: 8.5,
+      duration: 1200,
+    });
+  }, [stormId, validPoints, mapReady]);
 
   const effectiveCenter: [number, number] = useMemo(() => {
     if (typeof centerLon === 'number' && typeof centerLat === 'number') {
@@ -619,7 +666,7 @@ export const HazardMap: React.FC<Props> = ({
     cycloneMarkersRef.current = [];
 
     // Only render cyclone track waypoint markers if Cyclone tab is active and real trajectory exists
-    if (activeLayer === 'cyclone' && validPoints.length > 1) {
+    if (activeLayer === 'cyclone' && validPoints.length > 0) {
       validPoints.forEach((pt, idx) => {
         const isSelected = selectedPointIndex === idx;
         const isGenesis = idx === 0 && validPoints.length > 1;
@@ -682,11 +729,21 @@ export const HazardMap: React.FC<Props> = ({
       effectiveCenter[1] >= 11.5 &&
       effectiveCenter[1] <= 16.0;
 
+    if (isKarnataka) {
+      mapRef.current.setMaxBounds(KARNATAKA_COAST_BOUNDS);
+      mapRef.current.setMinZoom(4.8);
+    }
+
     mapRef.current.flyTo({
       center: effectiveCenter,
       zoom: isKarnataka ? DEFAULT_ZOOM : 5.8,
       duration: 800,
     });
+  };
+
+  const handleResetToCoast = () => {
+    handleLayerSelect('waves');
+    handleResetView();
   };
 
   return (
@@ -719,7 +776,7 @@ export const HazardMap: React.FC<Props> = ({
             <span className="text-[10px] font-semibold text-slate-400 px-1.5">Layer:</span>
             <button
               type="button"
-              onClick={() => setActiveLayer('waves')}
+              onClick={() => handleLayerSelect('waves')}
               className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
                 activeLayer === 'waves'
                   ? 'bg-blue-600 text-white font-bold shadow-2xs'
@@ -730,7 +787,7 @@ export const HazardMap: React.FC<Props> = ({
             </button>
             <button
               type="button"
-              onClick={() => setActiveLayer('douglas')}
+              onClick={() => handleLayerSelect('douglas')}
               className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
                 activeLayer === 'douglas'
                   ? 'bg-teal-600 text-white font-bold shadow-2xs'
@@ -741,7 +798,7 @@ export const HazardMap: React.FC<Props> = ({
             </button>
             <button
               type="button"
-              onClick={() => setActiveLayer('cyclone')}
+              onClick={() => handleLayerSelect('cyclone')}
               className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
                 activeLayer === 'cyclone'
                   ? 'bg-orange-600 text-white font-bold shadow-2xs'
@@ -815,13 +872,21 @@ export const HazardMap: React.FC<Props> = ({
               <span className="w-2 h-2 rounded-full bg-blue-600" />
               {activeStations.length} Karnataka Coastal Stations
             </span>
-            {activeLayer === 'cyclone' && validPoints.length > 1 && (
+            {activeLayer === 'cyclone' && validPoints.length > 0 && (
               <>
                 <span className="text-slate-300">|</span>
                 <span className="flex items-center gap-1 text-[11px] font-medium text-orange-700">
-                  <span className="w-2 h-2 rounded-full bg-orange-600" />
+                  <span className="w-2 h-2 rounded-full bg-orange-600 animate-pulse" />
                   {stormName} ({validPoints.length} fixes)
                 </span>
+                <button
+                  type="button"
+                  onClick={handleResetToCoast}
+                  className="px-1.5 py-0.5 rounded text-[10px] bg-orange-100 hover:bg-orange-200 text-orange-800 font-semibold transition cursor-pointer"
+                  title="Reset to Karnataka Coastal Waves"
+                >
+                  Reset Coast
+                </button>
               </>
             )}
             <button

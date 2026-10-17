@@ -34,6 +34,7 @@ export const MarineHazardWorkspace: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [forecastVisible, setForecastVisible] = useState<boolean>(true);
+  const [activeMapLayer, setActiveMapLayer] = useState<'waves' | 'douglas' | 'cyclone'>('waves');
 
   // Peak metrics for summary cards
   const [peakWindKnots, setPeakWindKnots] = useState<number | null>(null);
@@ -55,6 +56,21 @@ export const MarineHazardWorkspace: React.FC = () => {
 
   const abortRef = useRef<AbortController | null>(null);
   const hasInitializedRef = useRef(false);
+
+  // Regional Indian Ocean / Arabian Sea active alert count (excludes distant Pacific/Atlantic alerts)
+  const regionalAlertCount = React.useMemo(() => {
+    return liveAlerts.filter((ev) => {
+      const b = (ev.basin || '').toLowerCase();
+      if (b === 'arabian_sea' || b === 'bay_of_bengal' || b === 'north_indian') return true;
+      if (ev.track_points && ev.track_points.length > 0) {
+        const pt = ev.track_points[0];
+        if (pt.latitude >= 0 && pt.latitude <= 32 && pt.longitude >= 50 && pt.longitude <= 102) {
+          return true;
+        }
+      }
+      return false;
+    }).length;
+  }, [liveAlerts]);
 
   // Load initial data (live alerts + historical list)
   const loadInitialData = useCallback(async () => {
@@ -253,8 +269,12 @@ export const MarineHazardWorkspace: React.FC = () => {
         // 2. Dynamic Storm & Track Selection matching sector and horizon
         try {
           let chosenStorm: HazardEvent | null = null;
-          if (timeHorizon === 'live' || hazardType === 'gdacs') {
-            chosenStorm = liveAlerts.find((a) => a.basin === targetBasin) || liveAlerts[0] || null;
+          const regionalAlert = liveAlerts.find(
+            (a) => a.basin === targetBasin || a.basin === 'arabian_sea' || a.basin === 'bay_of_bengal'
+          );
+
+          if ((timeHorizon === 'live' || hazardType === 'gdacs') && regionalAlert) {
+            chosenStorm = regionalAlert;
           } else if (targetBasin === 'bay_of_bengal') {
             chosenStorm =
               historicalEvents.find(
@@ -365,11 +385,13 @@ export const MarineHazardWorkspace: React.FC = () => {
 
   const handleSelectEvent = async (event: HazardEvent) => {
     setSelectedEvent(event);
+    setActiveMapLayer('cyclone');
     try {
       const trackRes = await hazardApi.fetchHazardTrack(event.hazard_id);
-      setTrackPoints(trackRes.track_points || []);
-      if (trackRes.track_points && trackRes.track_points.length > 0) {
-        const maxW = Math.max(...trackRes.track_points.map((p) => p.wind_speed_knots || 0));
+      const pts = trackRes.track_points || [];
+      setTrackPoints(pts);
+      if (pts.length > 0) {
+        const maxW = Math.max(...pts.map((p) => p.wind_speed_knots || 0));
         setPeakWindKnots(maxW > 0 ? maxW : null);
         setWindCategory(
           maxW >= 120
@@ -387,6 +409,11 @@ export const MarineHazardWorkspace: React.FC = () => {
       }
     } catch {
       // keep existing track if fetch fails
+    }
+    // Smoothly scroll to map view for instant visual track confirmation
+    const mapCard = document.getElementById('hazard-map-card');
+    if (mapCard) {
+      mapCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   };
 
@@ -426,7 +453,7 @@ export const MarineHazardWorkspace: React.FC = () => {
         )}
 
         {/* Main Map + Summary Cards Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div id="hazard-map-card" className="grid grid-cols-1 lg:grid-cols-5 gap-4 scroll-mt-4">
           <div className="lg:col-span-3">
             <HazardMap
               stormName={selectedEvent?.name || 'Cyclone Precedents & Hazard Registry'}
@@ -437,18 +464,20 @@ export const MarineHazardWorkspace: React.FC = () => {
               selectedPointIndex={selectedPointIndex}
               onSelectPoint={(idx) => setSelectedPointIndex(idx)}
               source={selectedEvent?.source || 'NOAA IBTrACS'}
-              activeAlertCount={liveAlerts.length}
+              activeAlertCount={regionalAlertCount}
               centerLat={activeParams.lat}
               centerLon={activeParams.lon}
               sectorName={activeParams.presetName}
               radiusKm={activeParams.radiusKm}
               significantWaveHeight={significantWaveHeight}
               douglasState={douglasState}
+              activeLayer={activeMapLayer}
+              onLayerChange={setActiveMapLayer}
             />
           </div>
           <div className="lg:col-span-2 space-y-4">
             <HazardSummaryCards
-              activeAlertsCount={liveAlerts.length}
+              activeAlertsCount={regionalAlertCount}
               totalHistoricalCount={totalHistoricalCount}
               peakWindKnots={peakWindKnots}
               windCategory={windCategory}
@@ -526,7 +555,7 @@ export const MarineHazardWorkspace: React.FC = () => {
       <div className="hidden xl:block w-[340px] flex-shrink-0 space-y-4">
         <HazardLiveDataStatus
           loading={loading}
-          activeAlertCount={liveAlerts.length}
+          activeAlertCount={regionalAlertCount}
           significantWaveHeight={significantWaveHeight}
           douglasState={douglasState}
           peakWindKnots={peakWindKnots}

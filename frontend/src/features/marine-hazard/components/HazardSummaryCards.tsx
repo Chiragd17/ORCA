@@ -57,8 +57,8 @@ export const HazardSummaryCards: React.FC<Props> = ({
         <StatCard
           icon={<AlertTriangle className="w-4 h-4 text-amber-600" />}
           value={activeAlertsCount > 0 ? `${activeAlertsCount} Active` : '0 Active'}
-          label="GDACS Disaster Alerts"
-          sublabel={activeAlertsCount > 0 ? `${activeAlertsCount} active disaster alerts` : 'No active disaster alerts'}
+          label="Regional Disaster Alerts"
+          sublabel={activeAlertsCount > 0 ? `${activeAlertsCount} active in regional waters` : 'Karnataka & Arabian Sea Clear'}
           color="bg-amber-50"
           loading={loading}
         />
