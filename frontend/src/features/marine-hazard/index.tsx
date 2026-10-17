@@ -445,7 +445,6 @@ export const MarineHazardWorkspace: React.FC = () => {
       <div className="hidden xl:block w-[340px] flex-shrink-0 space-y-4">
         <HazardLiveDataStatus
           loading={loading}
-          totalHistoricalCount={totalHistoricalCount}
           activeAlertCount={liveAlerts.length}
           onRefresh={() => {
             loadInitialData();

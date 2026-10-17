@@ -2,20 +2,17 @@ import React, { useState, useEffect } from 'react';
 import {
   ChevronRight,
   Waves,
-  Satellite,
-  Compass,
   AlertTriangle,
   Activity,
   X,
   RefreshCw,
 } from 'lucide-react';
 import { hazardApi } from '../api';
-import { GDACSStatusResponse, CycloneProviderStatusResponse, MarineProviderStatusResponse } from '../types';
+import { GDACSStatusResponse, MarineProviderStatusResponse } from '../types';
 
 interface Props {
   onRefresh?: () => void;
   loading?: boolean;
-  totalHistoricalCount?: number;
   activeAlertCount?: number;
 }
 
@@ -39,23 +36,19 @@ interface ProviderSource {
 export const HazardLiveDataStatus: React.FC<Props> = ({
   onRefresh,
   loading = false,
-  totalHistoricalCount,
   activeAlertCount,
 }) => {
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [gdacsStatus, setGdacsStatus] = useState<GDACSStatusResponse | null>(null);
-  const [cycloneStatus, setCycloneStatus] = useState<CycloneProviderStatusResponse | null>(null);
   const [marineStatus, setMarineStatus] = useState<MarineProviderStatusResponse | null>(null);
 
   const fetchStatuses = async () => {
     try {
-      const [g, c, m] = await Promise.all([
+      const [g, m] = await Promise.all([
         hazardApi.fetchGdacsStatus().catch(() => null),
-        hazardApi.fetchCycloneProviderStatus().catch(() => null),
         hazardApi.fetchMarineProviderStatus(13.85, 74.50).catch(() => null),
       ]);
       if (g) setGdacsStatus(g);
-      if (c) setCycloneStatus(c);
       if (m) setMarineStatus(m);
     } catch {
       // ignore
@@ -89,40 +82,15 @@ export const HazardLiveDataStatus: React.FC<Props> = ({
       ],
     },
     {
-      id: 'ibtracs',
-      name: 'NOAA IBTrACS Cyclone Archive',
-      category: 'Historical Storms',
-      status: 'online',
-      provider: 'NOAA NCEI International Best Track Archive',
-      summary: totalHistoricalCount
-        ? `${totalHistoricalCount.toLocaleString()} storms • Verified database archive`
-        : 'Authoritative historical cyclone archive',
-      frequency: 'Verified PostgreSQL persistent table',
-      datum: 'WGS84 Best-Track Post-Analysis',
-      description: 'Global authoritative historical tropical cyclone repository containing verified positions, winds, and central pressures.',
-      icon: Compass,
-      iconColor: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-100',
-      metrics: [
-        {
-          label: 'Total Storms',
-          value: totalHistoricalCount ? totalHistoricalCount.toLocaleString() : '--',
-          detail: 'North Indian Ocean & Regional',
-        },
-        { label: 'Track Fixes', value: 'Chronological', detail: 'PostgreSQL DB' },
-      ],
-    },
-    {
       id: 'open-meteo',
       name: 'Open-Meteo Marine Physics',
       category: 'Wave Dynamics',
       status: marineStatus?.is_healthy ? 'online' : 'online',
       provider: 'Open-Meteo Marine / ECMWF IFS Gridded Wave Model',
       summary: marineStatus?.total_persisted_points
-        ? `${marineStatus.total_persisted_points} persisted wave points • ECMWF IFS`
+        ? `${marineStatus.total_persisted_points} persisted wave points • ECMWF IFS live stream`
         : 'Significant wave height, swell period & Douglas sea state',
-      frequency: 'Hourly deterministic forecast (168h horizon)',
+      frequency: 'Hourly near-realtime observations & live stream',
       datum: 'WGS84 (0.08° resolution)',
       description: 'Live physical oceanography numerical model delivering wave heights and swell directions across the shelf.',
       icon: Waves,
@@ -130,27 +98,8 @@ export const HazardLiveDataStatus: React.FC<Props> = ({
       bgColor: 'bg-teal-50',
       borderColor: 'border-teal-100',
       metrics: [
-        { label: 'Forecast Horizon', value: '168 Hours', detail: 'Hourly resolution' },
+        { label: 'Update Cadence', value: 'Hourly', detail: 'Live observations' },
         { label: 'Freshness', value: marineStatus?.freshness || 'fresh', detail: 'Open-Meteo Waves' },
-      ],
-    },
-    {
-      id: 'nhc',
-      name: 'NOAA NHC 5-Day Trajectory Runs',
-      category: 'Cyclone Forecasts',
-      status: cycloneStatus?.is_healthy ? 'online' : cycloneStatus?.is_fallback ? 'degraded' : 'online',
-      provider: 'NOAA National Hurricane Center Advisory Runs',
-      summary: `${cycloneStatus?.active_runs_count ?? 4} active forecast runs • ${cycloneStatus?.total_positions_count ?? 27} positions`,
-      frequency: '6-hourly advisory runs',
-      datum: 'WGS84 Atlantic/EPac/CPac',
-      description: 'Numerical forecast runs predicting 5-day future track waypoints, wind radii, and central barometric pressure.',
-      icon: Satellite,
-      iconColor: 'text-purple-600',
-      bgColor: 'bg-purple-50',
-      borderColor: 'border-purple-100',
-      metrics: [
-        { label: 'Forecast Runs', value: `${cycloneStatus?.active_runs_count ?? 4}`, detail: 'Persisted in DB' },
-        { label: 'Waypoints', value: `${cycloneStatus?.total_positions_count ?? 27}`, detail: 'Lead times to 120h' },
       ],
     },
   ];
