@@ -316,66 +316,61 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => setIsCardMinimized(!isCardMinimized)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer flex items-center gap-1 text-xs"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
             title={isCardMinimized ? 'Expand Forecast Advisory' : 'Minimize to Summary'}
           >
-            <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
+            <span className="text-[11px] text-slate-500 hidden sm:inline">
               {isCardMinimized ? 'Expand' : 'Collapse'}
             </span>
             {isCardMinimized ? <ChevronDown className="w-4 h-4 text-slate-600" /> : <ChevronUp className="w-4 h-4 text-slate-600" />}
           </button>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-              title="Dismiss Advisory"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setIsCardMinimized(true);
+              onClose?.();
+            }}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            title="Minimize / Close Advisory"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
       {isCardMinimized ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/90 text-xs">
-          <div className="flex items-center gap-2">
-            {data?.overall_status === 'FAVORABLE_WINDOW' ? (
-              <span className="px-2.5 py-0.5 rounded-full font-bold text-[10.5px] bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                FAVORABLE WINDOW
-              </span>
-            ) : data?.overall_status === 'CAUTION_WINDOW' ? (
-              <span className="px-2.5 py-0.5 rounded-full font-bold text-[10.5px] bg-amber-100 text-amber-800 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                CAUTION WINDOW
-              </span>
-            ) : (
-              <span className="px-2.5 py-0.5 rounded-full font-bold text-[10.5px] bg-red-100 text-red-800 flex items-center gap-1">
-                <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
-                ADVERSE WINDOW
-              </span>
-            )}
-            <span className="font-semibold text-[#0a1628]">
-              Peak Wave: {data?.peak_wave ? `${data.peak_wave.value_m.toFixed(2)}m` : '0.72m'}
-            </span>
-            <span className="text-slate-300">•</span>
-            <span className="text-slate-700">
-              Peak Gust: {data?.peak_gust ? `${data.peak_gust.value_kmh.toFixed(1)} km/h` : '25.9 km/h'}
-            </span>
-            <span className="text-slate-300 hidden md:inline">•</span>
-            <span className="text-slate-500 hidden md:inline">
-              Vessel: {getVesselLimits(vesselType).name} ({hours}h window)
-            </span>
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl bg-orange-50/70 border border-orange-200 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 bg-orange-100 text-orange-700 rounded-lg">
+              <Waves className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 font-bold text-[#0a1628]">
+                <span>Forward Marine Forecast & Vessel Risk Advisory</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  {data?.overall_status ? data.overall_status.replace('_', ' ') : 'FAVORABLE WINDOW'}
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono hidden md:inline">
+                  • ECMWF IFS Model (Minimized)
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-slate-600 mt-0.5">
+                <span>Peak Wave: <b className="text-slate-900">{data?.peak_wave ? `${data.peak_wave.value_m.toFixed(2)}m` : '0.72m'}</b></span>
+                <span>•</span>
+                <span>Peak Gust: <b className="text-slate-900">{data?.peak_gust ? `${data.peak_gust.value_kmh.toFixed(1)} km/h` : '25.9 km/h'}</b></span>
+                <span className="hidden sm:inline">•</span>
+                <span className="hidden sm:inline">{getVesselLimits(vesselType).name} ({hours}h window)</span>
+              </div>
+            </div>
           </div>
           <button
             onClick={() => setIsCardMinimized(false)}
-            className="text-xs font-semibold text-orange-600 hover:text-orange-700 hover:underline flex items-center gap-1 cursor-pointer"
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer text-xs transition-all hover:scale-[1.02]"
           >
-            <span>View Full 24h Hourly Table</span>
             <ChevronDown className="w-3.5 h-3.5" />
+            <span>Open Forecast Advisory</span>
           </button>
         </div>
       ) : (

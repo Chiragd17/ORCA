@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Clock, Compass, Play, Loader2, Zap, AlertTriangle } from 'lucide-react';
+import { MapPin, Clock, Compass, Play, Loader2, Zap, AlertTriangle, Waves } from 'lucide-react';
 
 export interface SectorPreset {
   id: string;
@@ -23,6 +23,8 @@ interface Props {
     preset?: SectorPreset
   ) => void;
   loading: boolean;
+  forecastVisible?: boolean;
+  onToggleForecast?: () => void;
 }
 
 export const TIME_HORIZONS = [
@@ -48,7 +50,12 @@ export const SECTOR_PRESETS: SectorPreset[] = [
   { id: 'bay_of_bengal', label: 'Bay of Bengal Basin', name: 'Bay of Bengal Basin', lat: 14.00, lon: 86.00, rad: 350, basin: 'bay_of_bengal', defaultHorizon: 'forecast_7d' },
 ];
 
-export const HazardControls: React.FC<Props> = ({ onRunAnalysis, loading }) => {
+export const HazardControls: React.FC<Props> = ({
+  onRunAnalysis,
+  loading,
+  forecastVisible = true,
+  onToggleForecast,
+}) => {
   const [activeSectorId, setActiveSectorId] = useState<string>('statewide');
   const [timeHorizon, setTimeHorizon] = useState<string>('forecast_7d');
   const [hazardFocus, setHazardFocus] = useState<string>('all');
@@ -171,6 +178,23 @@ export const HazardControls: React.FC<Props> = ({ onRunAnalysis, loading }) => {
           <Zap className={`w-3.5 h-3.5 ${autoRun ? 'text-orange-600' : 'text-slate-400'}`} />
           <span>Auto-run</span>
         </button>
+
+        {/* Marine Forecast Advisory Visibility Toggle */}
+        {onToggleForecast && (
+          <button
+            type="button"
+            onClick={onToggleForecast}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+              forecastVisible
+                ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100 shadow-2xs'
+                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+            }`}
+            title={forecastVisible ? 'Collapse / Hide Marine Forecast Advisory' : 'Open Forward Marine Forecast Advisory'}
+          >
+            <Waves className={`w-3.5 h-3.5 ${forecastVisible ? 'text-orange-600' : 'text-slate-400'}`} />
+            <span>Forecast {forecastVisible ? 'Active' : 'Closed'}</span>
+          </button>
+        )}
 
         {/* Primary Run Button */}
         <button

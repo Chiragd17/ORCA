@@ -427,6 +427,8 @@ export const MarineHazardWorkspace: React.FC = () => {
         <HazardWorkspaceHeader
           lastUpdated={lastUpdated}
           loading={loading}
+          forecastVisible={forecastVisible}
+          onToggleForecast={() => setForecastVisible((v) => !v)}
           onRefresh={() => {
             loadInitialData();
             runHazardAnalysis(
@@ -444,6 +446,8 @@ export const MarineHazardWorkspace: React.FC = () => {
         <HazardControls
           onRunAnalysis={runHazardAnalysis}
           loading={loading}
+          forecastVisible={forecastVisible}
+          onToggleForecast={() => setForecastVisible((v) => !v)}
         />
 
         {/* Error notification banner */}
@@ -466,20 +470,29 @@ export const MarineHazardWorkspace: React.FC = () => {
             />
           </div>
         ) : (
-          <div className="flex items-center justify-between p-3 rounded-xl bg-orange-50/60 border border-orange-200/80 text-xs text-orange-950 shadow-xs">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-orange-100 text-orange-700">
-                <Waves className="w-4 h-4" />
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-[#d8e4f0] shadow-xs text-xs animate-in fade-in duration-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl">
+                <Waves className="w-5 h-5" />
               </div>
-              <span className="font-semibold text-slate-900">Forward Marine Forecast & Vessel Risk Advisory</span>
-              <span className="text-[11px] text-slate-500 hidden sm:inline">• Live ECMWF IFS Model feed minimized</span>
+              <div>
+                <div className="flex items-center gap-2 font-bold text-[#0a1628] text-sm">
+                  <span>Forward Marine Forecast & Vessel Risk Advisory</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                    Live Feed Available
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  High-resolution numerical wave spectra (ECMWF IFS Model) and 24h operational vessel limits are available.
+                </p>
+              </div>
             </div>
             <button
               onClick={() => setForecastVisible(true)}
-              className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-semibold transition cursor-pointer text-xs flex items-center gap-1.5 shadow-xs"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-semibold shadow-xs flex items-center gap-2 cursor-pointer text-xs transition-all hover:scale-[1.02]"
             >
-              <Waves className="w-3.5 h-3.5" />
-              <span>Show Marine Forecast Advisory</span>
+              <Waves className="w-4 h-4" />
+              <span>Open Forecast Advisory</span>
             </button>
           </div>
         )}
