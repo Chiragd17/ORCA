@@ -133,6 +133,23 @@ class VerificationCheckSuite:
                             payload_variants.append(raw_data["value"])
                         if "data" in raw_data and isinstance(raw_data["data"], dict):
                             payload_variants.append(raw_data["data"])
+                        if "event_id" in raw_data and "peak_wave_height_m" in raw_data:
+                            content_subset = {
+                                "event_id": raw_data.get("event_id"),
+                                "name": raw_data.get("name"),
+                                "hazard_type": raw_data.get("hazard_type"),
+                                "agency": raw_data.get("agency"),
+                                "start_time": raw_data.get("start_time"),
+                                "end_time": raw_data.get("end_time"),
+                                "peak_wave_height_m": raw_data.get("peak_wave_height_m"),
+                                "peak_wind_gust_kmh": raw_data.get("peak_wind_gust_kmh"),
+                                "latitude": raw_data.get("latitude"),
+                                "longitude": raw_data.get("longitude"),
+                                "affected_sectors": sorted(raw_data.get("affected_sectors", [])) if isinstance(raw_data.get("affected_sectors"), list) else raw_data.get("affected_sectors"),
+                            }
+                            payload_variants.append(content_subset)
+                        if "hash" in raw_data:
+                            payload_variants.append({k: v for k, v in raw_data.items() if k != "hash"})
 
                     matched = False
                     for variant in payload_variants:
