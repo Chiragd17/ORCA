@@ -10,12 +10,98 @@ import { WorkspaceMapViewer } from '../workspaces-common/WorkspaceMapViewer';
 import { WorkspaceChatbot } from '../workspaces-common/WorkspaceChatbot';
 import { WorkspaceAnalysisModal } from '../workspaces-common/WorkspaceAnalysisModal';
 
+interface DistrictStats {
+  ports: number;
+  harbours: number;
+  settlements: number;
+  keyInfra: number;
+  populationExposure: string;
+  criticalFacilities: string;
+  hazardRadius: string;
+  center: [number, number];
+  zoom: number;
+}
+
+const DISTRICT_STATS: Record<string, DistrictStats> = {
+  'All Districts': {
+    ports: 5,
+    harbours: 12,
+    settlements: 48,
+    keyInfra: 23,
+    populationExposure: '1,280,000',
+    criticalFacilities: '23 Critical Assets',
+    hazardRadius: 'Statewide (320 km)',
+    center: [74.78, 13.65],
+    zoom: 7.8,
+  },
+  'Dakshina Kannada': {
+    ports: 2,
+    harbours: 3,
+    settlements: 16,
+    keyInfra: 9,
+    populationExposure: '606,177',
+    criticalFacilities: '9 Ports / Hosps',
+    hazardRadius: '30 km (NMPT Zone)',
+    center: [74.84, 12.91],
+    zoom: 10.2,
+  },
+  'Udupi': {
+    ports: 1,
+    harbours: 4,
+    settlements: 18,
+    keyInfra: 7,
+    populationExposure: '384,500',
+    criticalFacilities: '7 Harbours / Hosps',
+    hazardRadius: '25 km (Malpe Zone)',
+    center: [74.75, 13.35],
+    zoom: 10.0,
+  },
+  'Uttara Kannada': {
+    ports: 2,
+    harbours: 5,
+    settlements: 14,
+    keyInfra: 7,
+    populationExposure: '289,320',
+    criticalFacilities: '7 Ports / Naval',
+    hazardRadius: '35 km (Karwar Zone)',
+    center: [74.35, 14.45],
+    zoom: 9.4,
+  },
+};
+
 const INFRASTRUCTURE_DATA = [
-  { name: 'New Mangalore Port', type: 'Port', district: 'Dakshina Kannada', status: 'Operational', safe: true },
-  { name: 'Karwar Port', type: 'Port', district: 'Uttara Kannada', status: 'Operational', safe: true },
-  { name: 'Malpe Fishing Harbour', type: 'Harbour', district: 'Udupi', status: 'Operational', safe: true },
+  // Dakshina Kannada
+  { name: 'New Mangalore Port (NMPT)', type: 'Port', district: 'Dakshina Kannada', status: 'Operational', safe: true },
+  { name: 'Old Mangalore Port (Bunder)', type: 'Port', district: 'Dakshina Kannada', status: 'Operational', safe: true },
+  { name: 'Mangaluru Bunder Fishing Jetty', type: 'Harbour', district: 'Dakshina Kannada', status: 'Operational', safe: true },
+  { name: 'Kulai Fishery Harbour', type: 'Harbour', district: 'Dakshina Kannada', status: 'Operational', safe: true },
   { name: 'District Wenlock Hospital', type: 'Hospital', district: 'Dakshina Kannada', status: 'Operational', safe: true },
+  { name: 'Lady Goschen Hospital', type: 'Hospital', district: 'Dakshina Kannada', status: 'Operational', safe: true },
+  { name: 'NMPT Marine Oil Terminal', type: 'Key Infra', district: 'Dakshina Kannada', status: 'Operational', safe: true },
+  { name: 'MRPL Coastal Facility', type: 'Key Infra', district: 'Dakshina Kannada', status: 'Operational', safe: true },
+  { name: 'Surathkal Light House', type: 'Key Infra', district: 'Dakshina Kannada', status: 'Operational', safe: true },
+
+  // Udupi
+  { name: 'Malpe Fishing Harbour & Port', type: 'Harbour', district: 'Udupi', status: 'Operational', safe: true },
+  { name: 'Gangolli Fishery Terminal', type: 'Harbour', district: 'Udupi', status: 'Operational', safe: true },
+  { name: 'Hangarkatta Estuary Port', type: 'Harbour', district: 'Udupi', status: 'Operational', safe: true },
+  { name: 'Hejamadi Kodi Fishing Jetty', type: 'Harbour', district: 'Udupi', status: 'Operational', safe: true },
   { name: 'Udupi District Hospital', type: 'Hospital', district: 'Udupi', status: 'Operational', safe: true },
+  { name: 'Kaup Maritime Light House', type: 'Key Infra', district: 'Udupi', status: 'Operational', safe: true },
+  { name: 'UPCL Coastal Power Intake', type: 'Key Infra', district: 'Udupi', status: 'Operational', safe: true },
+  { name: 'Padubidri Strategic Energy Terminal', type: 'Key Infra', district: 'Udupi', status: 'Operational', safe: true },
+  { name: 'Kundapura Sub-Divisional Hospital', type: 'Hospital', district: 'Udupi', status: 'Operational', safe: true },
+
+  // Uttara Kannada
+  { name: 'Karwar Commercial Port (Baithkol)', type: 'Port', district: 'Uttara Kannada', status: 'Operational', safe: true },
+  { name: 'Tadadi Estuary Port', type: 'Port', district: 'Uttara Kannada', status: 'Operational', safe: true },
+  { name: 'Karwar Baithkol Fishing Harbour', type: 'Harbour', district: 'Uttara Kannada', status: 'Operational', safe: true },
+  { name: 'Honnavar Sharavathi Harbour', type: 'Harbour', district: 'Uttara Kannada', status: 'Operational', safe: true },
+  { name: 'Bhatkal Coastal Fishing Bunder', type: 'Harbour', district: 'Uttara Kannada', status: 'Operational', safe: true },
+  { name: 'INS Kadamba Naval Base Facility', type: 'Key Infra', district: 'Uttara Kannada', status: 'Operational', safe: true },
+  { name: 'District Civil Hospital Karwar', type: 'Hospital', district: 'Uttara Kannada', status: 'Operational', safe: true },
+  { name: 'Kaiga Coastal Monitoring Post', type: 'Key Infra', district: 'Uttara Kannada', status: 'Operational', safe: true },
+  { name: 'Bhatkal Coastal Surveillance Radar', type: 'Key Infra', district: 'Uttara Kannada', status: 'Operational', safe: true },
 ];
 
 export const CoastalAuthorityWorkspace: React.FC = () => {
@@ -23,10 +109,12 @@ export const CoastalAuthorityWorkspace: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState('All Districts');
   const [highlightSector, setHighlightSector] = useState<string | null>(null);
 
+  const currentStats = DISTRICT_STATS[selectedDistrict] || DISTRICT_STATS['All Districts'];
+
   const quickPrompts = [
-    'Run infrastructure vulnerability audit for New Mangalore Port',
-    'Evaluate population exposure within 30km hazard radius',
-    'Check operational clearance for Karwar & Malpe harbours',
+    `Run infrastructure vulnerability audit for ${selectedDistrict}`,
+    `Evaluate population exposure in ${selectedDistrict} within hazard radius`,
+    'Check operational clearance for Karwar, Malpe & Mangalore harbours',
   ];
 
   const filteredInfra = selectedDistrict === 'All Districts'
@@ -53,7 +141,7 @@ export const CoastalAuthorityWorkspace: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-[#6b8fc0]">
-              Infrastructure • Regulation • Planning • 36 Verified Coastal Assets Ingested
+              Infrastructure • Regulation • Planning • {INFRASTRUCTURE_DATA.length} Verified Coastal Assets Ingested
             </p>
           </div>
         </div>
@@ -80,15 +168,15 @@ export const CoastalAuthorityWorkspace: React.FC = () => {
             </div>
             <div className="flex items-center gap-1.5 text-[10.5px] text-slate-500 font-mono">
               <span className="w-2 h-2 rounded-full bg-indigo-600" />
-              <span>30km Coastal Hazard Cone Active</span>
+              <span>{currentStats.hazardRadius}</span>
             </div>
           </div>
 
           <WorkspaceMapViewer
             mode="coastal-authority"
             height="400px"
-            center={[74.78, 13.05]}
-            zoom={8.0}
+            center={currentStats.center}
+            zoom={currentStats.zoom}
             highlightSector={highlightSector}
             onMarkerClick={name => setHighlightSector(name)}
           />
@@ -113,7 +201,7 @@ export const CoastalAuthorityWorkspace: React.FC = () => {
                 <select
                   value={selectedDistrict}
                   onChange={e => setSelectedDistrict(e.target.value)}
-                  className="appearance-none bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 pr-8 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-400 cursor-pointer"
+                  className="appearance-none bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 pr-8 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-400 cursor-pointer shadow-2xs"
                 >
                   <option value="All Districts">All Districts</option>
                   <option value="Dakshina Kannada">Dakshina Kannada</option>
@@ -128,36 +216,49 @@ export const CoastalAuthorityWorkspace: React.FC = () => {
               </span>
             </div>
 
-            {/* 4 Stat Cards */}
+            {/* 4 Stat Cards - Dynamically updated based on selectedDistrict */}
             <div className="grid grid-cols-4 gap-2 text-center">
-              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 transition-colors">
                 <span className="text-[10px] text-slate-500 block">Ports</span>
-                <strong className="text-sm font-extrabold text-[#0a1628]">5</strong>
+                <strong className="text-sm font-extrabold text-[#0a1628]">
+                  {currentStats.ports}
+                </strong>
               </div>
-              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 transition-colors">
                 <span className="text-[10px] text-slate-500 block">Harbours</span>
-                <strong className="text-sm font-extrabold text-[#0a1628]">12</strong>
+                <strong className="text-sm font-extrabold text-[#0a1628]">
+                  {currentStats.harbours}
+                </strong>
               </div>
-              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 transition-colors">
                 <span className="text-[10px] text-slate-500 block">Settlements</span>
-                <strong className="text-sm font-extrabold text-[#0a1628]">48</strong>
+                <strong className="text-sm font-extrabold text-[#0a1628]">
+                  {currentStats.settlements}
+                </strong>
               </div>
-              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 transition-colors">
                 <span className="text-[10px] text-slate-500 block">Key Infra</span>
-                <strong className="text-sm font-extrabold text-[#0a1628]">23</strong>
+                <strong className="text-sm font-extrabold text-[#0a1628]">
+                  {currentStats.keyInfra}
+                </strong>
               </div>
             </div>
           </div>
 
           {/* Infrastructure List Table */}
           <div className="rounded-2xl bg-white border border-[#d8e4f0] p-4 shadow-xs space-y-2.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Infrastructure List
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Infrastructure List ({filteredInfra.length})
+              </span>
+              <span className="text-[10.5px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                {selectedDistrict}
+              </span>
+            </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[260px] overflow-y-auto">
               <table className="w-full text-left text-xs">
-                <thead>
+                <thead className="sticky top-0 bg-white z-10">
                   <tr className="border-b border-slate-100 text-[10.5px] font-bold text-slate-400 uppercase">
                     <th className="pb-2">Name</th>
                     <th className="pb-2">Type</th>
@@ -206,20 +307,26 @@ export const CoastalAuthorityWorkspace: React.FC = () => {
         <div className="flex items-center gap-6 flex-wrap">
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Risk & Exposure (Selected Area)
+              Risk & Exposure ({selectedDistrict})
             </span>
             <div className="flex items-center gap-6 mt-1">
               <div>
                 <span className="text-[11px] text-slate-500 block">Population Exposure</span>
-                <strong className="text-base font-extrabold text-[#0a1628]">606,177</strong>
+                <strong className="text-base font-extrabold text-[#0a1628]">
+                  {currentStats.populationExposure}
+                </strong>
               </div>
               <div className="border-l border-slate-200 pl-6">
                 <span className="text-[11px] text-slate-500 block">Critical Facilities</span>
-                <strong className="text-base font-extrabold text-[#0a1628]">3 Ports / Hosps</strong>
+                <strong className="text-base font-extrabold text-[#0a1628]">
+                  {currentStats.criticalFacilities}
+                </strong>
               </div>
               <div className="border-l border-slate-200 pl-6">
                 <span className="text-[11px] text-slate-500 block">Hazard Radius</span>
-                <strong className="text-base font-extrabold text-indigo-700">30 km</strong>
+                <strong className="text-base font-extrabold text-indigo-700">
+                  {currentStats.hazardRadius}
+                </strong>
               </div>
             </div>
           </div>
@@ -232,14 +339,14 @@ export const CoastalAuthorityWorkspace: React.FC = () => {
           className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer flex-shrink-0"
         >
           <Sparkles className="w-4 h-4" />
-          <span>Run Coastal Risk Analysis</span>
+          <span>Run Coastal Risk Analysis ({selectedDistrict})</span>
         </button>
       </div>
 
       {/* Floating AI Chatbot Copilot */}
       <WorkspaceChatbot
         workspace="coastal_authority"
-        workspaceTitle="Coastal Authority"
+        workspaceTitle={`Coastal Authority - ${selectedDistrict}`}
         quickPrompts={quickPrompts}
         onAnalysisGenerated={() => {
           setHighlightSector('Mangalore');
@@ -251,8 +358,8 @@ export const CoastalAuthorityWorkspace: React.FC = () => {
         isOpen={analysisModalOpen}
         onClose={() => setAnalysisModalOpen(false)}
         workspace="coastal_authority"
-        workspaceTitle="Coastal Authority Risk Analysis"
-        defaultQuery="Assess coastal infrastructure vulnerability, population exposure, and critical facility buffer clearance within 30km of New Mangalore Port."
+        workspaceTitle={`Coastal Authority Analysis - ${selectedDistrict}`}
+        defaultQuery={`Assess coastal infrastructure vulnerability, population exposure, and critical facility buffer clearance for ${selectedDistrict}.`}
         plannedAgents={['coastal_risk', 'marine_hazard']}
         onCompleted={(_id, _ans) => setHighlightSector('Mangalore')}
       />
