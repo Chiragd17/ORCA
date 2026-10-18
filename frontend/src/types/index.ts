@@ -69,6 +69,9 @@ export interface Investigation {
   findings: Finding[];
   limitations: string[];
   verification_summary?: VerificationSummary;
+  final_answer?: string;
+  evidence?: EvidenceRecord[];
+  events?: ExecutionEvent[];
 }
 
 export interface InvestigationCreateRequest {

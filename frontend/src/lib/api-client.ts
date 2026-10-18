@@ -107,6 +107,10 @@ class ApiClient {
     workspace: string;
     created_at: string;
     planned_agents: string[];
+    final_answer?: string;
+    findings_count?: number;
+    evidence_count?: number;
+    storage_tier?: string;
   }> {
     return this.request('/investigations', {
       method: 'POST',
