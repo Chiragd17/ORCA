@@ -7,6 +7,8 @@ interface Props {
   onRefresh: () => void;
   forecastVisible?: boolean;
   onToggleForecast?: () => void;
+  autoRun?: boolean;
+  secondsAgo?: number;
 }
 
 export const HazardWorkspaceHeader: React.FC<Props> = ({
@@ -15,6 +17,8 @@ export const HazardWorkspaceHeader: React.FC<Props> = ({
   onRefresh,
   forecastVisible = true,
   onToggleForecast,
+  autoRun = true,
+  secondsAgo = 0,
 }) => {
   return (
     <div className="flex items-start justify-between">
@@ -33,6 +37,16 @@ export const HazardWorkspaceHeader: React.FC<Props> = ({
       </div>
 
       <div className="flex items-center gap-2.5 text-xs text-[#6b8fc0]">
+        {autoRun && (
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-semibold shadow-2xs">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>Live Telemetry Streaming</span>
+          </div>
+        )}
+
         {lastUpdated && (
           <div className="hidden md:flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5" />
@@ -46,6 +60,9 @@ export const HazardWorkspaceHeader: React.FC<Props> = ({
                 minute: '2-digit',
                 timeZoneName: 'short',
               })}
+            </span>
+            <span className="text-[10px] text-slate-400 font-mono">
+              ({secondsAgo === 0 ? 'just now' : `${secondsAgo}s ago`})
             </span>
           </div>
         )}

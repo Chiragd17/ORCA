@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Clock, Compass, Play, Loader2, Zap, AlertTriangle, Waves } from 'lucide-react';
 
 export interface SectorPreset {
@@ -25,6 +25,11 @@ interface Props {
   loading: boolean;
   forecastVisible?: boolean;
   onToggleForecast?: () => void;
+  autoRun?: boolean;
+  onToggleAutoRun?: () => void;
+  activeSectorId?: string;
+  timeHorizon?: string;
+  hazardFocus?: string;
 }
 
 export const TIME_HORIZONS = [
@@ -55,12 +60,28 @@ export const HazardControls: React.FC<Props> = ({
   loading,
   forecastVisible = true,
   onToggleForecast,
+  autoRun: propAutoRun,
+  onToggleAutoRun,
+  activeSectorId: propActiveSectorId,
+  timeHorizon: propTimeHorizon,
+  hazardFocus: propHazardFocus,
 }) => {
-  const [activeSectorId, setActiveSectorId] = useState<string>('statewide');
-  const [timeHorizon, setTimeHorizon] = useState<string>('forecast_7d');
-  const [hazardFocus, setHazardFocus] = useState<string>('all');
+  const [internalSectorId, setInternalSectorId] = useState<string>('statewide');
+  const [internalHorizon, setInternalHorizon] = useState<string>('forecast_7d');
+  const [internalFocus, setInternalFocus] = useState<string>('all');
   const [selectedPreset, setSelectedPreset] = useState<SectorPreset>(SECTOR_PRESETS[0]);
-  const [autoRun, setAutoRun] = useState<boolean>(true);
+  const [internalAutoRun, setInternalAutoRun] = useState<boolean>(true);
+
+  const activeSectorId = propActiveSectorId !== undefined ? propActiveSectorId : internalSectorId;
+  const timeHorizon = propTimeHorizon !== undefined ? propTimeHorizon : internalHorizon;
+  const hazardFocus = propHazardFocus !== undefined ? propHazardFocus : internalFocus;
+  const autoRun = propAutoRun !== undefined ? propAutoRun : internalAutoRun;
+
+  // Keep selectedPreset in sync if activeSectorId changes
+  useEffect(() => {
+    const found = SECTOR_PRESETS.find((p) => p.id === activeSectorId);
+    if (found) setSelectedPreset(found);
+  }, [activeSectorId]);
 
   const executeAnalysis = (preset: SectorPreset, horizon: string, focus: string) => {
     const query = `Analyze ${focus === 'all' ? 'marine wave conditions, cyclone hazards, and Douglas sea state' : focus} off ${preset.name} across ${horizon} horizon against verified PostgreSQL records.`;
@@ -68,22 +89,20 @@ export const HazardControls: React.FC<Props> = ({
   };
 
   const handleSectorSelect = (preset: SectorPreset) => {
-    setActiveSectorId(preset.id);
+    setInternalSectorId(preset.id);
     setSelectedPreset(preset);
-    if (autoRun) {
-      executeAnalysis(preset, timeHorizon, hazardFocus);
-    }
+    executeAnalysis(preset, timeHorizon, hazardFocus);
   };
 
   const handleHorizonChange = (newHorizon: string) => {
-    setTimeHorizon(newHorizon);
+    setInternalHorizon(newHorizon);
     if (autoRun) {
       executeAnalysis(selectedPreset, newHorizon, hazardFocus);
     }
   };
 
   const handleFocusChange = (newFocus: string) => {
-    setHazardFocus(newFocus);
+    setInternalFocus(newFocus);
     if (autoRun) {
       executeAnalysis(selectedPreset, timeHorizon, newFocus);
     }
@@ -94,12 +113,13 @@ export const HazardControls: React.FC<Props> = ({
   };
 
   const toggleAutoRun = () => {
-    const nextState = !autoRun;
-    setAutoRun(nextState);
-    if (nextState) {
-      executeAnalysis(selectedPreset, timeHorizon, hazardFocus);
+    if (onToggleAutoRun) {
+      onToggleAutoRun();
+    } else {
+      setInternalAutoRun((prev) => !prev);
     }
   };
+
 
   return (
     <div className="p-4 rounded-2xl bg-white border border-[#d8e4f0] shadow-xs space-y-3">

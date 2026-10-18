@@ -347,6 +347,9 @@ export const CoastalAuthorityWorkspace: React.FC = () => {
       <WorkspaceChatbot
         workspace="coastal_authority"
         workspaceTitle={`Coastal Authority - ${selectedDistrict}`}
+        locationName={selectedDistrict}
+        latitude={DISTRICT_STATS[selectedDistrict]?.center[1] ?? 12.91}
+        longitude={DISTRICT_STATS[selectedDistrict]?.center[0] ?? 74.84}
         quickPrompts={quickPrompts}
         onAnalysisGenerated={() => {
           setHighlightSector('Mangalore');

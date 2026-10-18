@@ -106,7 +106,7 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
   const fetchForecast = useCallback(
     async (fetchHours: number = hours, fetchVessel: 'traditional' | 'motorized_small' | 'mechanized_trawler' = vesselType) => {
       setLoading(true);
-      const minDelay = new Promise((resolve) => setTimeout(resolve, 1800)); // ~2 second analysis feedback
+      const minDelay = new Promise((resolve) => setTimeout(resolve, 500)); // Minimum feedback delay (parallel with fetch)
 
       try {
         const limits = getVesselLimits(fetchVessel);
@@ -125,7 +125,8 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
           const [mRes, wRes] = await Promise.all([
             fetch(mUrl).then((r) => (r.ok ? r.json() : null)).catch(() => null),
             fetch(wUrl).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-          ]);
+            minDelay, // Run in parallel with fetch, not after
+          ]) as [any, any, void];
 
           if (mRes?.hourly?.time && mRes.hourly.time.length > 0) {
             const times: string[] = mRes.hourly.time;
@@ -228,8 +229,6 @@ export const HazardForecastAdvisory: React.FC<Props> = ({
             : peakW < 6.0
             ? 'Code 6 (Very Rough)'
             : 'Code 7+ (High / Severe)';
-
-        await minDelay;
 
         const resObj: ForecastResponse = {
           data_available: true,

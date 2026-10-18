@@ -20,6 +20,7 @@ import {
   HazardRecentAlerts,
   HazardDataProvenance,
   SectorPreset,
+  MarineStation,
 } from './components';
 
 export const MarineHazardWorkspace: React.FC = () => {
@@ -34,6 +35,8 @@ export const MarineHazardWorkspace: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [secondsAgo, setSecondsAgo] = useState<number>(0);
+  const [autoRun, setAutoRun] = useState<boolean>(true);
   const [forecastVisible, setForecastVisible] = useState<boolean>(true);
   const [activeMapLayer, setActiveMapLayer] = useState<'waves' | 'douglas' | 'cyclone'>('waves');
 
@@ -160,7 +163,6 @@ export const MarineHazardWorkspace: React.FC = () => {
       hazardType: string,
       preset?: SectorPreset
     ) => {
-      if (loading) return;
       abortRef.current?.abort();
       abortRef.current = new AbortController();
 
@@ -208,7 +210,7 @@ export const MarineHazardWorkspace: React.FC = () => {
 
       setLoading(true);
       setError(null);
-      const minDelay = new Promise((resolve) => setTimeout(resolve, 800));
+      const minDelay = new Promise((resolve) => setTimeout(resolve, 300));
 
       try {
         // 1. Fetch live Open-Meteo wave conditions for exact coordinates
@@ -356,6 +358,7 @@ export const MarineHazardWorkspace: React.FC = () => {
 
         await minDelay;
         setLastUpdated(new Date());
+        setSecondsAgo(0);
       } catch (err: any) {
         if (err.name !== 'AbortError') {
           setError(err.message || 'Failed to complete marine hazard analysis.');
@@ -364,7 +367,85 @@ export const MarineHazardWorkspace: React.FC = () => {
         setLoading(false);
       }
     },
-    [loading, liveAlerts, historicalEvents]
+    [liveAlerts, historicalEvents]
+  );
+
+  // Live seconds ticker
+  useEffect(() => {
+    const ticker = setInterval(() => {
+      setSecondsAgo((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(ticker);
+  }, []);
+
+  // Periodic live telemetry streaming when autoRun is true (30-second cycle)
+  useEffect(() => {
+    if (!autoRun) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const [mLive, alertsRes] = await Promise.all([
+          fetch(
+            `https://marine-api.open-meteo.com/v1/marine?latitude=${activeParams.lat}&longitude=${activeParams.lon}&hourly=wave_height,wave_period&forecast_hours=6&timezone=auto`
+          ).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+          hazardApi.fetchActiveLiveAlerts().catch(() => null),
+        ]);
+
+        if (mLive?.hourly?.wave_height && mLive.hourly.wave_height.length > 0) {
+          const hs = mLive.hourly.wave_height[0];
+          setSignificantWaveHeight(hs);
+          setDouglasState(
+            hs < 0.1
+              ? 'Calm (Code 0)'
+              : hs < 0.5
+              ? 'Calm (Code 1)'
+              : hs < 1.25
+              ? 'Slight (Code 3)'
+              : hs < 2.5
+              ? 'Moderate (Code 4)'
+              : hs < 4.0
+              ? 'Rough (Code 5)'
+              : hs < 6.0
+              ? 'Very Rough (Code 6)'
+              : 'High (Code 7+)'
+          );
+        }
+
+        if (alertsRes && Array.isArray(alertsRes)) {
+          setLiveAlerts(alertsRes);
+        }
+
+        setLastUpdated(new Date());
+        setSecondsAgo(0);
+      } catch {
+        // ignore background poll errors
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [autoRun, activeParams.lat, activeParams.lon]);
+
+  // Station click callback: dynamically focus entire workspace on clicked buoy
+  const handleSelectStation = useCallback(
+    (st: MarineStation) => {
+      setActiveParams((prev) => ({
+        ...prev,
+        lat: st.latitude,
+        lon: st.longitude,
+        radiusKm: 35,
+        presetName: st.name,
+        sector: st.sector,
+      }));
+      runHazardAnalysis(
+        `Analyze live ocean wave physics, operational vessel limits and navigational advisory at ${st.name} (${st.sector})`,
+        st.latitude,
+        st.longitude,
+        35,
+        activeParams.timeHorizon,
+        activeParams.hazardType
+      );
+    },
+    [activeParams.timeHorizon, activeParams.hazardType, runHazardAnalysis]
   );
 
   // Auto-run on mount
@@ -429,6 +510,8 @@ export const MarineHazardWorkspace: React.FC = () => {
           loading={loading}
           forecastVisible={forecastVisible}
           onToggleForecast={() => setForecastVisible((v) => !v)}
+          autoRun={autoRun}
+          secondsAgo={secondsAgo}
           onRefresh={() => {
             loadInitialData();
             runHazardAnalysis(
@@ -448,6 +531,11 @@ export const MarineHazardWorkspace: React.FC = () => {
           loading={loading}
           forecastVisible={forecastVisible}
           onToggleForecast={() => setForecastVisible((v) => !v)}
+          autoRun={autoRun}
+          onToggleAutoRun={() => setAutoRun((v) => !v)}
+          activeSectorId={activeParams.sector}
+          timeHorizon={activeParams.timeHorizon}
+          hazardFocus={activeParams.hazardType}
         />
 
         {/* Error notification banner */}
@@ -479,6 +567,7 @@ export const MarineHazardWorkspace: React.FC = () => {
               douglasState={douglasState}
               activeLayer={activeMapLayer}
               onLayerChange={setActiveMapLayer}
+              onSelectStation={handleSelectStation}
             />
           </div>
           <div className="lg:col-span-2 space-y-4">

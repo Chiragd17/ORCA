@@ -6,27 +6,60 @@ import {
   Sparkles,
   ExternalLink,
   X,
-  ShieldCheck,
+  Maximize2,
+  Minimize2,
   Clock,
   Layers,
+  ChevronDown,
+  ChevronRight,
+  Cpu,
 } from 'lucide-react';
-import { apiClient } from '../../lib/api-client';
+import { hazardApi } from '../marine-hazard/api';
+
+/**
+ * Strips raw markdown formatting symbols (asterisks, header hashes, code fences, etc.)
+ * to ensure 100% clean, human-readable plain text answers.
+ */
+export const cleanTextOnly = (str: string): string => {
+  if (!str) return '';
+  return str
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/(?<!\w)_([^_]+)_(?!\w)/g, '$1')
+    .replace(/```[a-zA-Z]*\n?([\s\S]*?)```/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^\s*[-*+]\s+/gm, '• ')
+    .trim();
+};
 
 interface Message {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
   timestamp: string;
+  providerUsed?: string;
+  modelUsed?: string;
+  isFallback?: boolean;
+  toolExecutions?: Array<{
+    tool: string;
+    arguments: Record<string, any>;
+    status: string;
+    summary?: any;
+  }>;
+  evidence?: any[];
+  findings?: any[];
   investigationId?: string;
-  findingsCount?: number;
-  plannedAgents?: string[];
-  status?: string;
 }
 
 interface Props {
   workspace: string;
   workspaceTitle: string;
   quickPrompts: string[];
+  latitude?: number;
+  longitude?: number;
+  locationName?: string;
   onAnalysisGenerated?: (investigationId: string, query: string) => void;
 }
 
@@ -34,18 +67,27 @@ export const WorkspaceChatbot: React.FC<Props> = ({
   workspace,
   workspaceTitle,
   quickPrompts,
+  latitude = 13.85,
+  longitude = 74.50,
+  locationName = 'Karnataka Coastal Shelf',
   onAnalysisGenerated,
 }) => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showToolsIndex, setShowToolsIndex] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | undefined>(undefined);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       sender: 'assistant',
-      text: `Hello! I am your ORCA ${workspaceTitle} AI Copilot. Ask any operational questions, request historical cyclone simulations, or trigger a multi-agent investigation.`,
+      text: `Hello! I am your ORCA ${workspaceTitle} AI Copilot. Ask any operational questions, request live wave & swell forecasts, cyclone risk assessments, or coastal data inquiries for ${locationName}.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      providerUsed: 'Groq',
+      modelUsed: 'openai/gpt-oss-120b',
     },
   ]);
 
@@ -59,7 +101,7 @@ export const WorkspaceChatbot: React.FC<Props> = ({
     if (isOpen) {
       scrollToBottom();
     }
-  }, [messages, isOpen]);
+  }, [messages, isOpen, loading]);
 
   const handleSend = async (queryText?: string) => {
     const q = (queryText || input).trim();
@@ -77,99 +119,48 @@ export const WorkspaceChatbot: React.FC<Props> = ({
     setLoading(true);
 
     try {
-      // Dispatch multi-agent investigation to backend Orchestrator & Groq LLM
-      const res = await apiClient.createInvestigation({
-        workspace: workspace as any,
-        query: q,
+      // Connect to the autonomous Groq-powered AI Specialist Engine
+      const res = await hazardApi.chatWithHazardAgent({
+        message: q,
+        conversation_id: conversationId,
+        location: locationName,
+        latitude,
+        longitude,
+        workspace,
+        persona: workspaceTitle,
       });
 
-      const invId = res.investigation_id;
-
-      // Fetch enriched details
-      let detailAnswer = res.final_answer;
-      let findingsCount = res.findings_count || 0;
-      let plannedAgents = res.planned_agents || [];
-
-      try {
-        const fullDetail = await apiClient.getInvestigation(invId);
-        if (fullDetail.final_answer) {
-          detailAnswer = fullDetail.final_answer;
-        }
-        if (fullDetail.findings) {
-          findingsCount = fullDetail.findings.length;
-        }
-      } catch (e) {
-        // Fallback to initial response
+      if (res.conversation_id) {
+        setConversationId(res.conversation_id);
       }
 
-      // Format complete operational answer for chat bubble
-      let cleanSummary = '';
-      if (detailAnswer) {
-        // 1. Extract Section 1 (Operational Assessment & Decision Guidance)
-        const sec1Match = detailAnswer.match(/####\s+1\.\s+Operational Assessment[\s\S]*?(?=####\s+2\.|$)/i);
-        if (sec1Match) {
-          const sec1Content = sec1Match[0]
-            .replace(/^####\s+1\.\s+[^\n]+\n+/, '')
-            .replace(/^-\s+/gm, '• ')
-            .trim();
-          cleanSummary += sec1Content;
-        } else {
-          // Fallback: strip title header and query
-          const rawStripped = detailAnswer
-            .replace(/^###\s+[^\n]+\n+/, '')
-            .replace(/\*\*Query:\*\*[^\n]+\n+/, '')
-            .split(/####\s+\d+\.\s+Evidence/)[0]
-            .trim();
-          cleanSummary += rawStripped;
-        }
-
-        // 2. Extract top 2 Specialist Findings if present for extra evidentiary depth
-        const sec2Match = detailAnswer.match(/####\s+2\.\s+Specialist Observations[\s\S]*?(?=####\s+3\.|$)/i);
-        if (sec2Match) {
-          const findingLines = sec2Match[0]
-            .split('\n')
-            .filter(l => l.trim().startsWith('- [Finding') || l.trim().startsWith('- *[Finding') || l.trim().startsWith('- **[Finding'))
-            .slice(0, 2)
-            .map(l => {
-              // Clean finding tags for compact bubble display
-              return l.replace(/^-\s+/, '• ')
-                .replace(/\[Finding\s+#?\d+\]\s*/i, '')
-                .replace(/\*\((?:Status|State):\s*[A-Za-z_]+\)\*/i, '')
-                .trim();
-            });
-
-          if (findingLines.length > 0) {
-            cleanSummary += `\n\n**Specialist Observations:**\n` + findingLines.join('\n');
-          }
-        }
-      }
-
-      if (!cleanSummary || cleanSummary.trim().length === 0) {
-        cleanSummary = `Investigation ${invId} successfully completed. Verified evidence and findings generated across ${plannedAgents.join(', ')}.`;
-      }
+      const cleanAnswer = cleanTextOnly(res.message);
 
       const botMsg: Message = {
         id: `bot_${Date.now()}`,
         sender: 'assistant',
-        text: cleanSummary,
+        text: cleanAnswer,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        investigationId: invId,
-        findingsCount,
-        plannedAgents,
-        status: res.status,
+        providerUsed: res.provider_used || 'Groq',
+        modelUsed: res.model_used || 'llama-3.3-70b-versatile',
+        isFallback: res.is_fallback,
+        toolExecutions: res.tool_executions,
+        evidence: res.evidence,
+        findings: res.findings,
       };
 
       setMessages(prev => [...prev, botMsg]);
 
-      if (onAnalysisGenerated) {
-        onAnalysisGenerated(invId, q);
+      if (onAnalysisGenerated && res.conversation_id) {
+        onAnalysisGenerated(res.conversation_id, q);
       }
     } catch (err: any) {
       const errorMsg: Message = {
         id: `err_${Date.now()}`,
         sender: 'assistant',
-        text: `Error executing multi-agent reasoning: ${err?.message || 'Server connection failed.'}`,
+        text: `Error communicating with AI Copilot: ${err?.message || 'Server connection failed.'}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isFallback: true,
       };
       setMessages(prev => [...prev, errorMsg]);
     } finally {
@@ -180,6 +171,11 @@ export const WorkspaceChatbot: React.FC<Props> = ({
   const openOrchestratorGraph = (invId: string) => {
     navigate(`/agents/orchestrator?id=${invId}`);
   };
+
+  const activeAssistantTurn = [...messages].reverse().find(m => m.sender === 'assistant' && m.modelUsed);
+  const activeModelDisplay = activeAssistantTurn
+    ? `${activeAssistantTurn.providerUsed ? `${activeAssistantTurn.providerUsed} ` : ''}${activeAssistantTurn.modelUsed}`
+    : 'Groq Live';
 
   return (
     <>
@@ -200,9 +196,15 @@ export const WorkspaceChatbot: React.FC<Props> = ({
 
       {/* Floating Chatbot Window */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-96 max-w-[calc(100vw-2rem)] h-[540px] rounded-2xl bg-white border border-[#d8e4f0] shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
+        <div
+          className={`fixed bottom-6 right-6 z-50 rounded-2xl bg-white border border-[#d8e4f0] shadow-2xl flex flex-col overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 ${
+            isExpanded
+              ? 'w-[780px] h-[780px] max-w-[calc(100vw-2.5rem)] max-h-[calc(100vh-3.5rem)]'
+              : 'w-96 max-w-[calc(100vw-2rem)] h-[550px]'
+          }`}
+        >
           {/* Header */}
-          <div className="px-4 py-3 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-center justify-between flex-shrink-0">
+          <div className="px-4 py-3 bg-gradient-to-r from-slate-900 via-slate-950 to-indigo-950 text-white flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-2.5">
               <span className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
                 <Sparkles className="w-4 h-4" />
@@ -214,32 +216,57 @@ export const WorkspaceChatbot: React.FC<Props> = ({
                     GROQ LIVE
                   </span>
                 </h3>
-                <p className="text-[10px] text-slate-300 capitalize">{workspaceTitle} Persona</p>
+                <p className="text-[10.5px] text-slate-300 capitalize">{workspaceTitle} Persona</p>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              {/* Option to increase / decrease size of the chatbot */}
+              <button
+                type="button"
+                onClick={() => setIsExpanded(prev => !prev)}
+                title={isExpanded ? 'Collapse to standard size' : 'Increase size of chatbot'}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              >
+                {isExpanded ? (
+                  <Minimize2 className="w-4 h-4" />
+                ) : (
+                  <Maximize2 className="w-4 h-4" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                title="Close chat"
+                className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Model info banner */}
+          <div className="px-3 py-1.5 bg-slate-100 border-b border-slate-200/80 flex items-center justify-between text-[10.5px] text-slate-600">
+            <div className="flex items-center gap-1 font-medium truncate">
+              <Cpu className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
+              <span className="truncate">{activeModelDisplay}</span>
+            </div>
+            <span className="text-[10px] text-slate-500">{locationName}</span>
           </div>
 
           {/* Quick Prompts Bar */}
-          <div className="p-2.5 bg-slate-50 border-b border-slate-100 flex-shrink-0">
+          <div className="p-2.5 bg-slate-50 border-b border-slate-200/60 flex-shrink-0">
             <span className="text-[10px] font-bold text-slate-500 block mb-1.5 uppercase tracking-wider">
               Quick AI Prompts:
             </span>
-            <div className="flex flex-col gap-1">
-              {quickPrompts.slice(0, 3).map((prompt, idx) => (
+            <div className={`grid gap-1 ${isExpanded ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              {quickPrompts.slice(0, 4).map((prompt, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => handleSend(prompt)}
                   disabled={loading}
-                  className="text-left text-[11px] text-indigo-700 bg-white hover:bg-indigo-50/80 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-indigo-200 transition-colors truncate"
+                  className="text-left text-[11px] text-indigo-700 bg-white hover:bg-indigo-50/80 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-indigo-200 transition-colors truncate cursor-pointer disabled:opacity-50"
                 >
                   ⚡ {prompt}
                 </button>
@@ -257,117 +284,95 @@ export const WorkspaceChatbot: React.FC<Props> = ({
                   className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1`}
                 >
                   <div
-                    className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed ${
+                    className={`max-w-[88%] p-3 rounded-2xl text-xs leading-relaxed ${
                       isUser
-                        ? 'bg-indigo-600 text-white rounded-br-xs shadow-xs'
+                        ? 'bg-blue-600 text-white rounded-br-xs shadow-xs'
                         : 'bg-white border border-[#d8e4f0] text-slate-800 rounded-bl-xs shadow-2xs'
                     }`}
                   >
                     {isUser ? (
                       <p className="whitespace-pre-wrap">{msg.text}</p>
                     ) : (
-                      <div className="space-y-1.5 text-xs text-[#1e293b]">
-                        {msg.text.split('\n').map((rawLine, idx) => {
-                          const line = rawLine.trim();
-                          if (!line) return <div key={idx} className="h-1" />;
+                      <div className="space-y-2 text-xs text-[#1e293b]">
+                        {/* Pure text rendering without raw markdown */}
+                        <p className="whitespace-pre-wrap leading-relaxed text-[#1e293b] select-text">
+                          {cleanTextOnly(msg.text)}
+                        </p>
 
-                          // Operational Status Badge (🟢, ⚠️, 🚨)
-                          if (line.includes('🟢') || line.includes('⚠️') || line.includes('🚨')) {
-                            const isGreen = line.includes('🟢');
-                            const isAmber = line.includes('⚠️');
-                            const bannerColor = isGreen
-                              ? 'bg-emerald-50 text-emerald-950 border-emerald-300'
-                              : isAmber
-                              ? 'bg-amber-50 text-amber-950 border-amber-300'
-                              : 'bg-rose-50 text-rose-950 border-rose-300';
-                            const cleanTitle = line.replace(/\*\*/g, '').replace(/^[•\-]\s*/, '');
-                            return (
-                              <div
+                        {/* Tool Executions Trace (Just like Images 4 & 5) */}
+                        {msg.toolExecutions && msg.toolExecutions.length > 0 && (
+                          <div className="mt-2.5 pt-2 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowToolsIndex(showToolsIndex === msg.id ? null : msg.id)
+                              }
+                              className="text-[10px] font-semibold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 cursor-pointer"
+                            >
+                              {showToolsIndex === msg.id ? (
+                                <ChevronDown className="w-3 h-3" />
+                              ) : (
+                                <ChevronRight className="w-3 h-3" />
+                              )}
+                              <span>
+                                Executed {msg.toolExecutions.length} Specialist Tool{msg.toolExecutions.length > 1 ? 's' : ''}
+                              </span>
+                            </button>
+
+                            {showToolsIndex === msg.id && (
+                              <div className="mt-1.5 space-y-1 pl-2 border-l-2 border-indigo-300">
+                                {msg.toolExecutions.map((t, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="text-[10px] font-mono bg-slate-50 p-1.5 rounded border border-slate-200"
+                                  >
+                                    <span className="font-bold text-blue-700">{t.tool}</span>
+                                    <span className="text-slate-500"> ({JSON.stringify(t.arguments)})</span>
+                                    <span className="ml-1 text-emerald-600 font-semibold">[{t.status}]</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Cited Evidence Pills */}
+                        {msg.evidence && msg.evidence.length > 0 && (
+                          <div className="mt-2 pt-1.5 border-t border-slate-100 flex flex-wrap items-center gap-1">
+                            <span className="text-[9.5px] font-bold text-slate-400">Cited Evidence:</span>
+                            {msg.evidence.slice(0, 4).map((ev: any, idx: number) => (
+                              <span
                                 key={idx}
-                                className={`p-2 rounded-xl border text-[11px] font-bold ${bannerColor} shadow-2xs leading-snug`}
+                                className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[9px] border border-blue-200"
+                                title={ev.source_name || ev.dataset_id}
                               >
-                                {cleanTitle}
-                              </div>
-                            );
-                          }
+                                {ev.id || ev.evidence_id}
+                              </span>
+                            ))}
+                          </div>
+                        )}
 
-                          // Directives or Section Header
-                          if (line.toLowerCase().includes('what to do') || line.toLowerCase().includes('directives') || line.toLowerCase().includes('guidance')) {
-                            return (
-                              <div key={idx} className="font-extrabold text-[#0a1628] text-[11.5px] mt-2 mb-1 flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
-                                <span>{line.replace(/\*\*/g, '').replace(/^[•\-]\s*/, '')}</span>
-                              </div>
-                            );
-                          }
-
-                          // Bullets
-                          const isBullet = line.startsWith('•') || line.startsWith('-') || /^\d+\./.test(line);
-                          const cleanContent = line.replace(/^[•\-]\s*/, '');
-
-                          // Inline Markdown: **bold** and `code`
-                          const segments = cleanContent.split(/(\*\*.*?\*\*|`.*?`)/g);
-                          const rendered = segments.map((seg, sIdx) => {
-                            if (seg.startsWith('**') && seg.endsWith('**')) {
-                              return <strong key={sIdx} className="font-bold text-[#0a1628]">{seg.slice(2, -2)}</strong>;
-                            }
-                            if (seg.startsWith('`') && seg.endsWith('`')) {
-                              return (
-                                <code key={sIdx} className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono text-[10.5px] border border-indigo-100 font-semibold">
-                                  {seg.slice(1, -1)}
-                                </code>
-                              );
-                            }
-                            return seg;
-                          });
-
-                          if (isBullet) {
-                            return (
-                              <div key={idx} className="flex items-start gap-1.5 text-xs text-[#334155] leading-relaxed pl-0.5">
-                                <span className="text-indigo-500 font-bold text-xs select-none">•</span>
-                                <div className="flex-1">{rendered}</div>
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <p key={idx} className="text-xs text-[#334155] leading-relaxed">
-                              {rendered}
-                            </p>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Investigation Metadata & Action Button */}
-                    {msg.investigationId && (
-                      <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-2">
-                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 flex-wrap">
-                          <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">
-                            {msg.investigationId}
-                          </span>
-                          <span className="text-emerald-600 font-bold flex items-center gap-1">
-                            <ShieldCheck className="w-3 h-3" />
-                            {msg.findingsCount} Claims Verified
-                          </span>
-                        </div>
-
-                        {/* Open Full Execution Graph Button */}
-                        <button
-                          type="button"
-                          onClick={() => openOrchestratorGraph(msg.investigationId!)}
-                          className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[10.5px] border border-indigo-200 transition-all cursor-pointer"
-                        >
-                          <Layers className="w-3 h-3" />
-                          <span>Open Full Execution Graph</span>
-                          <ExternalLink className="w-2.5 h-2.5" />
-                        </button>
+                        {/* Optional graph link if investigation ID exists */}
+                        {msg.investigationId && (
+                          <div className="mt-2 pt-1.5 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => openOrchestratorGraph(msg.investigationId!)}
+                              className="w-full flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[10px] border border-indigo-200 transition-all cursor-pointer"
+                            >
+                              <Layers className="w-3 h-3" />
+                              <span>Open Multi-Agent Execution Graph</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                  <span className="text-[9px] text-slate-400 font-mono px-1">
-                    {msg.timestamp}
-                  </span>
+                  <div className="flex items-center gap-1.5 text-[9.5px] text-slate-400 font-mono px-1">
+                    <span>{msg.timestamp}</span>
+                    {msg.providerUsed && <span>• {msg.providerUsed}</span>}
+                  </div>
                 </div>
               );
             })}
@@ -375,7 +380,7 @@ export const WorkspaceChatbot: React.FC<Props> = ({
             {loading && (
               <div className="flex items-center gap-2 p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 text-indigo-700 text-xs animate-pulse">
                 <Clock className="w-3.5 h-3.5 animate-spin text-indigo-600" />
-                <span>Coordinating multi-agent specialists via Groq...</span>
+                <span>Generating live operational intelligence via Groq...</span>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -388,7 +393,7 @@ export const WorkspaceChatbot: React.FC<Props> = ({
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSend()}
-              placeholder="Ask AI or simulate conditions..."
+              placeholder={`Ask AI ${workspaceTitle} Copilot...`}
               disabled={loading}
               className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
             />
@@ -397,6 +402,7 @@ export const WorkspaceChatbot: React.FC<Props> = ({
               onClick={() => handleSend()}
               disabled={loading || !input.trim()}
               className="p-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white shadow-xs transition-colors cursor-pointer"
+              title="Send message"
             >
               <Send className="w-3.5 h-3.5" />
             </button>

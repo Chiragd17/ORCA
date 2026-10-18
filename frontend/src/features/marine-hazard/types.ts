@@ -298,6 +298,8 @@ export interface HazardAgentChatRequest {
   radius_km?: number | null;
   force_live_refresh?: boolean;
   use_custom_coordinates?: boolean;
+  workspace?: string | null;
+  persona?: string | null;
 }
 
 export interface DecisionResult {

@@ -135,6 +135,12 @@ export const HazardLiveDataStatus: React.FC<Props> = ({
   useEffect(() => {
     fetchStatuses();
     fetchLiveTelemetry();
+
+    const interval = setInterval(() => {
+      fetchLiveTelemetry();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, [fetchStatuses, fetchLiveTelemetry]);
 
   const effectiveAlertCount = activeAlertCount !== undefined ? activeAlertCount : (gdacsStatus?.active_alerts_count ?? 0);

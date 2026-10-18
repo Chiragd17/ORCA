@@ -49,16 +49,20 @@ class LiveMarineObservation:
         return self.wave_height is not None and self.wave_height >= threshold_m
 
 
+_COASTAL_LIVE_CACHE: dict[str, tuple[float, LiveMarineObservation]] = {}
+_COASTAL_LIVE_TTL: float = 300.0  # 5 minutes
+
+
 class OpenMeteoMarineClient:
     """Async HTTP client for Open-Meteo Marine API."""
 
     def __init__(
         self,
         base_url: Optional[str] = None,
-        timeout_seconds: float = 4.0,
+        timeout_seconds: float = 2.5,
     ):
         self.base_url = base_url or getattr(settings, "OPEN_METEO_BASE_URL", "https://marine-api.open-meteo.com/v1/marine")
-        self.timeout = timeout_seconds
+        self.timeout = min(timeout_seconds, 2.5)
 
     async def fetch_current_conditions(
         self, latitude: float, longitude: float
@@ -67,6 +71,13 @@ class OpenMeteoMarineClient:
         Fetch real-time current marine conditions for target coordinates.
         Returns: (observation_or_none, error_message_or_none)
         """
+        cache_key = f"{round(latitude, 2)}_{round(longitude, 2)}"
+        now_ts = datetime.now(timezone.utc).timestamp()
+        if cache_key in _COASTAL_LIVE_CACHE:
+            ts, obs = _COASTAL_LIVE_CACHE[cache_key]
+            if (now_ts - ts) < _COASTAL_LIVE_TTL:
+                return obs, None
+
         try:
             validate_coordinates(latitude, longitude)
         except ValueError as ve:
@@ -89,7 +100,10 @@ class OpenMeteoMarineClient:
                     return None, err_msg
 
                 payload = response.json()
-                return self._parse_payload(latitude, longitude, payload)
+                obs, err = self._parse_payload(latitude, longitude, payload)
+                if obs:
+                    _COASTAL_LIVE_CACHE[cache_key] = (now_ts, obs)
+                return obs, err
 
         except httpx.ConnectTimeout:
             err_msg = "Connection timeout to Open-Meteo Marine API."

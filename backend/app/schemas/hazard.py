@@ -132,6 +132,12 @@ class HazardAgentChatRequest(BaseModel):
     conversation_id: str | None = Field(
         None, description="Existing conversation session ID for follow-up turns"
     )
+    workspace: str | None = Field(
+        None, description="Active workspace persona e.g. fisherman, marine_monitoring, protected_areas, coastal_authority, disaster_management"
+    )
+    persona: str | None = Field(
+        None, description="Optional persona title e.g. Fisherman, Marine Monitoring"
+    )
     location: str | None = Field(None, description="Target location name e.g. Mangaluru, Mumbai")
     latitude: float | None = Field(None, ge=-90.0, le=90.0)
     longitude: float | None = Field(None, ge=-180.0, le=180.0)

@@ -646,6 +646,25 @@ HAZARD_AGENT_TOOLS: list[dict[str, Any]] = [
 ]
 
 
+def strip_markdown(text: str) -> str:
+    """Strips Markdown syntax from AI text output to ensure clean, human-readable plain text answers."""
+    if not text:
+        return ""
+    # Strip markdown headers: ### or ## or #
+    text = re.sub(r"^#{1,6}\s*", "", text, flags=re.MULTILINE)
+    # Strip bold and italics: **word** or *word* or __word__ or _word_
+    text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+    text = re.sub(r"\*([^*]+)\*", r"\1", text)
+    text = re.sub(r"__([^_]+)__", r"\1", text)
+    text = re.sub(r"(?<!\w)_([^_]+)_(?!\w)", r"\1", text)
+    # Strip code blocks and inline code
+    text = re.sub(r"```[a-zA-Z]*\n?([\s\S]*?)```", r"\1", text)
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+    # Convert markdown bullet dashes into clean bullets
+    text = re.sub(r"^\s*[-*+]\s+", "• ", text, flags=re.MULTILINE)
+    return text.strip()
+
+
 class MarineHazardAgent(SpecialistAgent):
     agent_id: str = "marine_hazard"
     name: str = "Marine Hazard & Forecast Agent"
@@ -689,6 +708,10 @@ class MarineHazardAgent(SpecialistAgent):
             points = self.forecast_repo.get_marine_forecasts(
                 db=db, latitude=latitude, longitude=longitude, radius_deg=0.75, limit=hours
             )
+            if not points:
+                points = self.forecast_repo.get_marine_forecasts(
+                    db=db, latitude=latitude, longitude=longitude, radius_deg=2.0, limit=hours
+                )
         except Exception as e:  # noqa: BLE001
             return {"status": "error", "message": f"Query failed: {e!s}"}, findings, evidence
 
@@ -1560,6 +1583,8 @@ class MarineHazardAgent(SpecialistAgent):
         db: Session | None = None,
         force_live_refresh: bool = False,
         use_custom_coordinates: bool = False,
+        workspace: str | None = None,
+        persona: str | None = None,
     ) -> HazardAgentChatResponse:
         """
         Process a conversational user query with explicit location precedence,
@@ -1662,10 +1687,36 @@ class MarineHazardAgent(SpecialistAgent):
         turn_evidence: list[EvidenceRecord] = []
         VALID_TOOL_NAMES = {t["function"]["name"] for t in HAZARD_AGENT_TOOLS}
 
+        ws_key = str(workspace or persona or "").lower().replace("-", "_")
+        if "fisherman" in ws_key:
+            role_title = "ORCA Fisherman Operational AI Copilot"
+            role_mission = "Your mission is to provide interactive, accurate, highly relevant operational marine and vessel safety intelligence for fishermen, trawlers, and gillnetters along the Karnataka coast and Arabian Sea."
+        elif "monitoring" in ws_key or "ocean" in ws_key:
+            role_title = "ORCA Marine Monitoring Specialist Copilot"
+            role_mission = "Your mission is to provide interactive physical oceanography, wave height spectra, sea-surface temperature anomalies, and ocean current telemetry."
+        elif "protect" in ws_key or "eco" in ws_key:
+            role_title = "ORCA Marine Protected Areas & Conservation Copilot"
+            role_mission = "Your mission is to provide ecological hazard intelligence, mangrove conservation, reef buffer zones, and marine sanctuary status."
+        elif "coastal" in ws_key or "authority" in ws_key:
+            role_title = "ORCA Coastal Authority & Infrastructure Copilot"
+            role_mission = "Your mission is to provide maritime port operational clearance, navigation channel safety, coastal buffer status, and municipal infrastructure risk assessment."
+        elif "disaster" in ws_key:
+            role_title = "ORCA Coastal Disaster Management & Cyclone Response Copilot"
+            role_mission = "Your mission is to provide active cyclone alert tracking, storm surge inundation analysis, evacuation decision support, and emergency response intelligence."
+        else:
+            role_title = "ORCA Marine Hazard & Forecast Specialist Agent"
+            role_mission = "Your mission is to provide accurate, scientifically grounded marine hazard intelligence from verified PostgreSQL datasets."
+
         system_prompt = (
-            "You are the ORCA Marine Hazard & Forecast Specialist Agent. Your mission is to provide accurate, "
-            "scientifically grounded marine hazard intelligence from verified PostgreSQL datasets.\n"
-            "RULES:\n"
+            f"You are the {role_title}. {role_mission}\n"
+            "CRITICAL OUTPUT FORMAT RULES (STRICT REQUIREMENT):\n"
+            "1. All your answers MUST be clean, natural plain text only. Do NOT use Markdown formatting.\n"
+            "2. Never use asterisks for bolding or italics (do not write **text** or *text*).\n"
+            "3. Never use markdown header hashes (do not write ### or ##).\n"
+            "4. Never use markdown code backticks (do not write `code`).\n"
+            "5. If listing items, use plain numbers (1., 2.) or simple bullets (•).\n"
+            "6. Be interactive, helpful, conversational, and direct. Directly answer what the user asked without repeating canned disclaimers or rigid templates.\n"
+            "OPERATIONAL RULES:\n"
             "1. Always use available tools to query data before making factual claims.\n"
             "2. When answering about wave conditions, sea state, or fishing safety, invoke `get_marine_forecast`.\n"
             "3. When answering about cyclone warnings, invoke `get_active_hazard_alerts`. Never report distant global storms (e.g. Mexico) as local threats.\n"
@@ -1769,7 +1820,7 @@ class MarineHazardAgent(SpecialistAgent):
                         })
                 else:
                     # Final response from model reached!
-                    final_reply = resp.content
+                    final_reply = strip_markdown(resp.content)
                     session.add_assistant_message(
                         content=final_reply,
                         evidence_ids=[e.id for e in turn_evidence],
@@ -1996,7 +2047,8 @@ class MarineHazardAgent(SpecialistAgent):
             )
             final_reply = "\n\n".join(sections)
 
-        # 5. Save and return conversational turn
+        # 5. Clean Markdown and save conversational turn
+        final_reply = strip_markdown(final_reply)
         session.add_assistant_message(
             content=final_reply,
             evidence_ids=[e.id for e in turn_evidence],

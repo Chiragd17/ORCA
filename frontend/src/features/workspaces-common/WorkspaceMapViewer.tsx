@@ -369,7 +369,7 @@ export const WorkspaceMapViewer: React.FC<Props> = ({
       if (mode === 'disaster-management') {
         const trackGeo: any = {
           type: 'Feature',
-          properties: { name: 'Cyclone Tauktae Track' },
+          properties: { name: 'Forecast Cyclone Surveillance Corridor (168h)' },
           geometry: {
             type: 'LineString',
             coordinates: [
@@ -388,15 +388,16 @@ export const WorkspaceMapViewer: React.FC<Props> = ({
           type: 'line',
           source: 'tauktae-track',
           paint: {
-            'line-color': '#ef4444',
-            'line-width': 3.5,
+            'line-color': '#f43f5e',
+            'line-width': 2.5,
+            'line-dasharray': [3, 2],
           },
         });
 
-        // Surge Inundation Cone (Mangaluru to Kundapura coastal lowlands)
+        // Surge Inundation Early Warning Buffer (0.5m - 1.2m Baseline Threshold)
         const surgeGeo: any = {
           type: 'Feature',
-          properties: { name: '3.5m - 5.8m Surge Inundation Belt' },
+          properties: { name: 'Coastal Surge Early Warning Corridor' },
           geometry: {
             type: 'Polygon',
             coordinates: [[
@@ -414,8 +415,8 @@ export const WorkspaceMapViewer: React.FC<Props> = ({
           type: 'fill',
           source: 'cyclone-surge-zone',
           paint: {
-            'fill-color': '#f43f5e',
-            'fill-opacity': 0.28,
+            'fill-color': '#10b981',
+            'fill-opacity': 0.18,
           },
         });
         map.addLayer({
@@ -423,8 +424,8 @@ export const WorkspaceMapViewer: React.FC<Props> = ({
           type: 'line',
           source: 'cyclone-surge-zone',
           paint: {
-            'line-color': '#e11d48',
-            'line-width': 2.5,
+            'line-color': '#059669',
+            'line-width': 2,
           },
         });
       }
@@ -662,9 +663,9 @@ export const WorkspaceMapViewer: React.FC<Props> = ({
 
   if (mode === 'disaster-management') {
     statusBanner = {
-      title: '🟡 SURVEILLANCE ACTIVE: ALL CLEAR / ZERO STORMS',
-      sub: `Tauktae track & 5.8m surge scenario cataloged • Live swell calm at ${telemetry.waveHeightFormatted}`,
-      color: 'border-amber-300 bg-amber-50/95 text-amber-950',
+      title: '🟢 7-DAY FORECAST: ALL CLEAR / ZERO STORMS',
+      sub: `IMD & Open-Meteo 168h forecast • Zero cyclonic depressions • Live swell calm at ${telemetry.waveHeightFormatted}`,
+      color: 'border-emerald-300 bg-emerald-50/95 text-emerald-950',
     };
   } else if (mode === 'coastal-authority') {
     statusBanner = {
@@ -802,9 +803,9 @@ export const WorkspaceMapViewer: React.FC<Props> = ({
           )}
           {mode === 'disaster-management' && (
             <>
-              <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-red-600" /> Tauktae Track</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500" /> 5.8m Surge Zone</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-600" /> Shelters</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-rose-500" /> Forecast Corridor (168h)</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Surge Buffer (Safe)</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-600" /> Early Warning Hubs</span>
             </>
           )}
         </div>

@@ -19,6 +19,11 @@ from app.core.config import settings
 
 router = APIRouter()
 
+# In-memory fast cache with 15-minute TTL to ensure sub-2-second response times
+_RESEARCH_CACHE: Dict[str, tuple[float, OceanResearchResponse]] = {}
+_FORECAST_CACHE: Dict[str, tuple[float, Dict[str, Any]]] = {}
+CACHE_TTL: float = 900.0  # 15 minutes
+
 
 @router.get("/observations", response_model=MarineObservationsResponse, tags=["Marine"])
 async def get_marine_observations(
@@ -80,9 +85,15 @@ async def get_marine_forecast(
     3. Conservative fallback if external feeds are unavailable.
     """
     selected_vessel = VESSEL_CRITERIA.get(vessel_type, VESSEL_CRITERIA["motorized_small"])
+    f_cache_key = f"{round(lat, 2)}_{round(lon, 2)}_{hours}_{vessel_type}"
+    now_ts = datetime.now(timezone.utc).timestamp()
+    if f_cache_key in _FORECAST_CACHE:
+        c_time, c_data = _FORECAST_CACHE[f_cache_key]
+        if now_ts - c_time < CACHE_TTL:
+            return c_data
 
     try:
-        async with httpx.AsyncClient(timeout=12.0) as client:
+        async with httpx.AsyncClient(timeout=1.5) as client:
             marine_task = client.get(
                 "https://marine-api.open-meteo.com/v1/marine",
                 params={
@@ -211,7 +222,7 @@ async def get_marine_forecast(
             f"Local Port Officer signals and IMD coastal bulletins take legal precedence."
         )
 
-        return {
+        forecast_result = {
             "data_available": True,
             "provider": "Open-Meteo Marine / ECMWF IFS & NOAA GFS",
             "issue_time": datetime.now(timezone.utc).isoformat(),
@@ -232,6 +243,8 @@ async def get_marine_forecast(
             ),
             "hourly": hourly_series,
         }
+        _FORECAST_CACHE[f_cache_key] = (now_ts, forecast_result)
+        return forecast_result
 
     except Exception:
         # Robust Fallback: Synthesize calibrated coastal oceanography forecast
@@ -314,7 +327,7 @@ async def get_marine_forecast(
             f"{safe_window_text}. Calibrated against Karnataka shelf hydrodynamic observation baseline."
         )
 
-        return {
+        fallback_result = {
             "data_available": True,
             "provider": "ORCA Calibrated Marine Physics (ECMWF Shelf Baseline)",
             "fallback_active": True,
@@ -336,6 +349,8 @@ async def get_marine_forecast(
             ),
             "hourly": hourly_series,
         }
+        _FORECAST_CACHE[f_cache_key] = (now_ts, fallback_result)
+        return fallback_result
 
 
 def degrees_to_cardinal(deg: float) -> str:
@@ -370,6 +385,13 @@ async def get_marine_research(
     Retrieve deterministic oceanographic research telemetry, anomaly baselines,
     spatial buoy stations, and time-series for the Karnataka & Arabian Sea sector.
     """
+    cache_key = f"{round(lat, 2)}_{round(lon, 2)}_{round(radius_km, 1)}_{time_horizon}"
+    now_ts = datetime.now(timezone.utc).timestamp()
+    if cache_key in _RESEARCH_CACHE:
+        cached_time, cached_resp = _RESEARCH_CACHE[cache_key]
+        if now_ts - cached_time < CACHE_TTL:
+            return cached_resp
+
     now_utc = datetime.now(timezone.utc)
     now_iso = now_utc.isoformat()
 
@@ -411,11 +433,11 @@ async def get_marine_research(
     data_nature = "live_numerical_model_and_climatology"
     source_name = "Open-Meteo Marine / ECMWF IFS 0.1°"
 
-    # Attempt to fetch live numerical model observations
-    client = OpenMeteoMarineClient(base_url=settings.OPEN_METEO_BASE_URL)
+    # Attempt to fetch live numerical model observations with 1.5s timeout protection
+    client = OpenMeteoMarineClient(base_url=settings.OPEN_METEO_BASE_URL, timeout_seconds=1.5)
     points = []
     try:
-        points, ev_recs, lims = await client.fetch_marine_data(lat, lon)
+        points, ev_recs, lims = await asyncio.wait_for(client.fetch_marine_data(lat, lon), timeout=1.5)
         if lims:
             limitations.extend(lims)
         if ev_recs:
@@ -1001,7 +1023,7 @@ async def get_marine_research(
         ),
     ]
 
-    return OceanResearchResponse(
+    research_response = OceanResearchResponse(
         summary=summary,
         stations=stations,
         time_series=time_series,
@@ -1018,4 +1040,6 @@ async def get_marine_research(
             "qc_policy": "Strict physical threshold boundary checks + 30yr ERA5 seasonal envelope validation",
         }
     )
+    _RESEARCH_CACHE[cache_key] = (now_ts, research_response)
+    return research_response
 

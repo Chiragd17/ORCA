@@ -2,7 +2,7 @@ export { HazardWorkspaceHeader } from './HazardWorkspaceHeader';
 export { HazardControls, type SectorPreset } from './HazardControls';
 export { HazardSummaryCards } from './HazardSummaryCards';
 export { HazardConditionBadge } from './HazardConditionBadge';
-export { HazardMap } from './HazardMap';
+export { HazardMap, type MarineStation } from './HazardMap';
 export { HazardForecastAdvisory } from './HazardForecastAdvisory';
 export { HazardSpecialistChat } from './HazardSpecialistChat';
 export { HazardDetailedResults } from './HazardDetailedResults';

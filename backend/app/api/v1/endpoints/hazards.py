@@ -464,6 +464,8 @@ async def chat_with_marine_hazard_agent(
             db=db,
             force_live_refresh=request.force_live_refresh,
             use_custom_coordinates=request.use_custom_coordinates,
+            workspace=request.workspace,
+            persona=request.persona,
         )
         return response
     except Exception as exc:

@@ -18,20 +18,29 @@ interface StatCardProps {
   sublabel?: string;
   color: string;
   loading: boolean;
+  isLive?: boolean;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ icon, value, label, sublabel, color, loading }) => (
-  <div className="p-3 rounded-xl bg-white border border-[#d8e4f0] shadow-2xs flex items-center gap-3">
+const StatCard: React.FC<StatCardProps> = ({ icon, value, label, sublabel, color, loading, isLive }) => (
+  <div className="p-3 rounded-xl bg-white border border-[#d8e4f0] shadow-2xs flex items-center gap-3 transition-all hover:border-slate-300">
     <div className={`p-2 rounded-lg ${color}`}>
       {icon}
     </div>
-    <div className="min-w-0">
+    <div className="min-w-0 flex-1">
       {loading ? (
         <div className="skeleton h-6 w-16 mb-1" />
       ) : (
-        <p className="text-xl font-bold text-[#0a1628] leading-tight">
-          {typeof value === 'number' ? value.toLocaleString() : value}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-xl font-bold text-[#0a1628] leading-tight">
+            {typeof value === 'number' ? value.toLocaleString() : value}
+          </p>
+          {isLive && (
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+          )}
+        </div>
       )}
       <p className="text-[11px] text-[#4a6fa5] font-medium leading-tight">{label}</p>
       {sublabel && (
@@ -61,6 +70,7 @@ export const HazardSummaryCards: React.FC<Props> = ({
           sublabel={activeAlertsCount > 0 ? `${activeAlertsCount} active in regional waters` : 'Karnataka & Arabian Sea Clear'}
           color="bg-amber-50"
           loading={loading}
+          isLive={activeAlertsCount > 0}
         />
         <StatCard
           icon={<Compass className="w-4 h-4 text-blue-600" />}
@@ -77,6 +87,7 @@ export const HazardSummaryCards: React.FC<Props> = ({
           sublabel={windCategory ? `IMD: ${windCategory}` : 'Saffir-Simpson / IMD scale'}
           color="bg-red-50"
           loading={loading}
+          isLive={peakWindKnots !== null && peakWindKnots > 0}
         />
         <StatCard
           icon={<Waves className="w-4 h-4 text-cyan-600" />}
@@ -85,6 +96,7 @@ export const HazardSummaryCards: React.FC<Props> = ({
           sublabel={douglasState ? `Douglas: ${douglasState}` : 'Open-water wave field'}
           color="bg-cyan-50"
           loading={loading}
+          isLive={significantWaveHeight !== null}
         />
       </div>
     </div>

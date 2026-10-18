@@ -222,7 +222,7 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
     setError(null);
 
     // Minimum visible analysis time so the user sees the spinner
-    const minDelay = new Promise((r) => setTimeout(r, 1800));
+    const minDelay = new Promise((r) => setTimeout(r, 500));
 
     try {
       // 1. Primary backend endpoint

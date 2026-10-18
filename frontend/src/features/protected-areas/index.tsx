@@ -238,6 +238,9 @@ export const ProtectedAreasWorkspace: React.FC = () => {
       <WorkspaceChatbot
         workspace="protected-areas"
         workspaceTitle="Protected Areas"
+        locationName={highlightSector || "Netravati-Gurupuru Estuary"}
+        latitude={12.85}
+        longitude={74.84}
         quickPrompts={quickPrompts}
         onAnalysisGenerated={() => {
           setHighlightSector('Netravati');

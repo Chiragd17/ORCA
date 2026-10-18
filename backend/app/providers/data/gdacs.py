@@ -138,6 +138,10 @@ def gdacs_event_to_hazard_read(
     )
 
 
+_GDACS_FEED_CACHE: dict[str, Any] = {"data": None, "timestamp": 0.0}
+_GDACS_FEED_TTL: float = 600.0  # 10 minutes cache
+
+
 class GDACSClient:
     """
     Client for retrieving active disaster alerts and tropical cyclone tracks from GDACS.
@@ -152,11 +156,12 @@ class GDACSClient:
         timeout_seconds: float | None = None,
         max_retries: int | None = None,
     ):
-        self.timeout = timeout_seconds or float(
+        raw_timeout = timeout_seconds or float(
             settings.EXTERNAL_REQUEST_TIMEOUT_SECONDS
         )
-        self.max_retries = (
-            max_retries if max_retries is not None else settings.MAX_PROVIDER_RETRIES
+        self.timeout = min(raw_timeout, 3.5)
+        self.max_retries = min(
+            max_retries if max_retries is not None else settings.MAX_PROVIDER_RETRIES, 1
         )
 
     async def fetch_active_tropical_cyclones(self) -> list[GDACSEvent]:
@@ -184,7 +189,15 @@ class GDACSClient:
         return hazard_reads, report
 
     async def _fetch_feed_data(self) -> dict[str, Any]:
-        """Execute HTTP GET with bounded retries, 429 Retry-After support, and timeout protection."""
+        """Execute HTTP GET with in-memory TTL caching, bounded retries, and timeout protection."""
+        now_ts = datetime.now(UTC).timestamp()
+        if (
+            _GDACS_FEED_CACHE["data"] is not None
+            and (now_ts - _GDACS_FEED_CACHE["timestamp"]) < _GDACS_FEED_TTL
+        ):
+            logger.info("Serving GDACS live feed from in-memory cache (fresh within 10m TTL)")
+            return _GDACS_FEED_CACHE["data"]
+
         params = {"eventtype": "TC"}
         logger.info(
             f"Connecting to GDACS live feed: {self.BASE_URL} (timeout={self.timeout}s)"
@@ -205,6 +218,9 @@ class GDACSClient:
                         status_code = 200
 
                     if status_code == 429:
+                        if _GDACS_FEED_CACHE["data"] is not None:
+                            logger.warning("GDACS 429 received; serving cached feed.")
+                            return _GDACS_FEED_CACHE["data"]
                         retry_after_hdr = getattr(response, "headers", {}).get(
                             "Retry-After"
                         )
@@ -234,7 +250,10 @@ class GDACSClient:
                         )
 
                     try:
-                        return response.json()
+                        parsed = response.json()
+                        _GDACS_FEED_CACHE["data"] = parsed
+                        _GDACS_FEED_CACHE["timestamp"] = now_ts
+                        return parsed
                     except Exception as json_err:
                         raise ValueError(
                             f"GDACS API returned malformed JSON response: {json_err}"
@@ -246,6 +265,12 @@ class GDACSClient:
                 httpx.HTTPStatusError,
             ) as exc:
                 last_exception = exc
+                if _GDACS_FEED_CACHE["data"] is not None:
+                    logger.warning(
+                        f"GDACS live request failed ({exc}); serving cached feed snapshot."
+                    )
+                    return _GDACS_FEED_CACHE["data"]
+
                 if (
                     isinstance(exc, httpx.HTTPStatusError)
                     and exc.response.status_code < 500
@@ -269,6 +294,9 @@ class GDACSClient:
                     logger.error(
                         f"GDACS request permanently failed after {self.max_retries + 1} attempts: {exc}"
                     )
+
+        if _GDACS_FEED_CACHE["data"] is not None:
+            return _GDACS_FEED_CACHE["data"]
 
         match last_exception:
             case httpx.TimeoutException():

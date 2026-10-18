@@ -11,6 +11,20 @@ import {
 import { hazardApi } from '../api';
 import { FindingItem, EvidenceRecordItem } from '../types';
 
+export const cleanTextOnly = (str: string): string => {
+  if (!str) return '';
+  return str
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/(?<!\w)_([^_]+)_(?!\w)/g, '$1')
+    .replace(/```[a-zA-Z]*\n?([\s\S]*?)```/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^\s*[-*+]\s+/gm, '• ')
+    .trim();
+};
+
 interface Props {
   lat: number;
   lon: number;
@@ -67,7 +81,7 @@ export const HazardSpecialistChat: React.FC<Props> = ({
       id: 'welcome',
       role: 'assistant',
       content:
-        `Welcome to the **Marine Hazard & Forecast Specialist Agent**. I autonomously analyze real-time marine wave spectra, evaluate Douglas Sea State categories, query official GDACS disaster alerts, and cross-reference NOAA IBTrACS historical storm tracks for the **${locationName}** sector.`,
+        `Welcome to the Marine Hazard & Forecast Specialist Agent. I autonomously analyze real-time marine wave spectra, evaluate Douglas Sea State categories, query official GDACS disaster alerts, and cross-reference NOAA IBTrACS historical storm tracks for the ${locationName} sector.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       providerUsed: 'Groq',
       modelUsed: 'openai/gpt-oss-120b',
@@ -191,7 +205,7 @@ export const HazardSpecialistChat: React.FC<Props> = ({
                     : 'bg-[#f8fafc] text-slate-800 border border-slate-200/80 rounded-tl-xs'
                 }`}
               >
-                <p className="whitespace-pre-wrap">{m.content}</p>
+                <p className="whitespace-pre-wrap">{cleanTextOnly(m.content)}</p>
 
                 {/* Tool Executions Trace */}
                 {m.toolExecutions && m.toolExecutions.length > 0 && (

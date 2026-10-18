@@ -261,6 +261,9 @@ export const MarineMonitoringWorkspace: React.FC = () => {
       <WorkspaceChatbot
         workspace="marine-monitoring"
         workspaceTitle="Marine Monitoring"
+        locationName={highlightSector || 'Mangaluru Offshore'}
+        latitude={12.87}
+        longitude={74.88}
         quickPrompts={quickPrompts}
         onAnalysisGenerated={() => {
           setHighlightSector('Mangaluru Offshore');

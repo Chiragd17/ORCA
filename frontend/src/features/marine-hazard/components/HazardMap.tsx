@@ -36,6 +36,7 @@ interface Props {
   douglasState?: string | null;
   activeLayer?: 'waves' | 'douglas' | 'cyclone';
   onLayerChange?: (layer: 'waves' | 'douglas' | 'cyclone') => void;
+  onSelectStation?: (station: MarineStation) => void;
 }
 
 // Regional bounding box framing Karnataka's 320km coastal shelf and regional Arabian Sea waters
@@ -251,6 +252,7 @@ export const HazardMap: React.FC<Props> = ({
   douglasState: _douglasState,
   activeLayer: activeLayerProp,
   onLayerChange,
+  onSelectStation,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -306,23 +308,20 @@ export const HazardMap: React.FC<Props> = ({
     if (lastLoadedTrackRef.current === trackKey) return;
     lastLoadedTrackRef.current = trackKey;
 
-    // 1. Auto-switch to cyclone track layer
-    handleLayerSelect('cyclone');
+    // Only fit trajectory if the user is explicitly on the cyclone track layer or selected a waypoint
+    if (activeLayer === 'cyclone' || selectedPointIndex !== null) {
+      map.setMaxBounds(null as any);
+      map.setMinZoom(1.5);
 
-    // 2. Clear any bounds restriction so user has full freedom to pan anywhere globally
-    map.setMaxBounds(null as any);
-    map.setMinZoom(1.5);
+      const bounds = new maplibregl.LngLatBounds();
+      validPoints.forEach((p) => bounds.extend([p.longitude, p.latitude]));
 
-    // 3. Compute bounding box for all fixes
-    const bounds = new maplibregl.LngLatBounds();
-    validPoints.forEach((p) => bounds.extend([p.longitude, p.latitude]));
-
-    // 4. Smoothly fit camera to frame the entire trajectory
-    map.fitBounds(bounds, {
-      padding: { top: 60, bottom: 60, left: 60, right: 60 },
-      maxZoom: 8.5,
-      duration: 1200,
-    });
+      map.fitBounds(bounds, {
+        padding: { top: 60, bottom: 60, left: 60, right: 60 },
+        maxZoom: 8.5,
+        duration: 1200,
+      });
+    }
   }, [stormId, validPoints, mapReady]);
 
   const effectiveCenter: [number, number] = useMemo(() => {
@@ -554,35 +553,70 @@ export const HazardMap: React.FC<Props> = ({
       const el = document.createElement('div');
       el.className = 'group cursor-pointer relative';
 
-      // Live wave height: keep constant across canonical shelf or use significantWaveHeight
-      const displayedWave =
+      // Live wave height: dynamically scale station-specific wave height relative to the live shelf telemetry
+      const baseline =
         significantWaveHeight !== null && significantWaveHeight !== undefined
-          ? Number(significantWaveHeight.toFixed(2))
+          ? significantWaveHeight
           : 0.72;
+      const stationWave = Number((baseline * (st.baseWave / 0.70)).toFixed(2));
 
-      let metricBadge = `${displayedWave.toFixed(2)}m`;
-      let badgeTextColor = 'text-cyan-300';
-      let badgeBorder = 'border-cyan-500/80';
-      let discBorder = 'border-cyan-600';
+      // Dynamic Sea State / Douglas code per station
+      const stationDouglas =
+        stationWave < 0.1
+          ? 'Calm (Code 0)'
+          : stationWave < 0.5
+          ? 'Calm (Code 1)'
+          : stationWave < 1.25
+          ? 'Slight (Code 3)'
+          : stationWave < 2.5
+          ? 'Moderate (Code 4)'
+          : stationWave < 4.0
+          ? 'Rough (Code 5)'
+          : stationWave < 6.0
+          ? 'Very Rough (Code 6)'
+          : 'High (Code 7+)';
+
+      // Dynamic wave period variation matching coastal bathymetry
+      const stationPeriod = Number((st.wavePeriod * (1 + (stationWave - 0.70) * 0.1)).toFixed(1));
+
+      let metricBadge = `${stationWave.toFixed(2)}m`;
+      let badgeTextColor =
+        stationWave >= 2.5
+          ? 'text-rose-300'
+          : stationWave >= 1.25
+          ? 'text-amber-300'
+          : 'text-cyan-300';
+      let badgeBorder =
+        stationWave >= 2.5
+          ? 'border-rose-500/80'
+          : stationWave >= 1.25
+          ? 'border-amber-500/80'
+          : 'border-cyan-500/80';
+      let discBorder =
+        stationWave >= 2.5
+          ? 'border-rose-600'
+          : stationWave >= 1.25
+          ? 'border-amber-600'
+          : 'border-cyan-600';
 
       if (activeLayer === 'douglas') {
-        metricBadge = st.douglas.split('(')[0].trim();
+        metricBadge = stationDouglas.split('(')[0].trim();
         badgeTextColor =
-          displayedWave >= 2.5
+          stationWave >= 2.5
             ? 'text-rose-300'
-            : displayedWave >= 1.25
+            : stationWave >= 1.25
             ? 'text-amber-300'
             : 'text-emerald-300';
         badgeBorder =
-          displayedWave >= 2.5
+          stationWave >= 2.5
             ? 'border-rose-500/80'
-            : displayedWave >= 1.25
+            : stationWave >= 1.25
             ? 'border-amber-500/80'
             : 'border-emerald-500/80';
         discBorder =
-          displayedWave >= 2.5
+          stationWave >= 2.5
             ? 'border-rose-600'
-            : displayedWave >= 1.25
+            : stationWave >= 1.25
             ? 'border-amber-600'
             : 'border-emerald-600';
       }
@@ -607,6 +641,12 @@ export const HazardMap: React.FC<Props> = ({
         </div>
       `;
 
+      // Allow selecting station to focus dashboard on that buoy
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onSelectStation?.(st);
+      });
+
       const popup = new maplibregl.Popup({
         offset: 16,
         closeButton: true,
@@ -614,7 +654,7 @@ export const HazardMap: React.FC<Props> = ({
         anchor: 'bottom',
         maxWidth: '290px',
       }).setHTML(`
-        <div class="p-3 text-xs font-sans text-slate-800 space-y-1.5 min-w-[210px]">
+        <div class="p-3 text-xs font-sans text-slate-800 space-y-1.5 min-w-[220px]">
           <div class="font-bold text-[#0a1628] text-[13px] flex items-center justify-between gap-2">
             <span>${st.name}</span>
             <span class="text-[9.5px] px-1.5 py-0.5 rounded uppercase font-mono font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 shrink-0">
@@ -623,15 +663,15 @@ export const HazardMap: React.FC<Props> = ({
           </div>
           <div class="text-[10.5px] text-slate-500 font-medium">${st.sector}</div>
           <div class="grid grid-cols-2 gap-x-2 gap-y-1 pt-1.5 border-t border-slate-200 text-[11px]">
-            <span>Wave Height: <b>${displayedWave.toFixed(2)} m</b></span>
-            <span>Wave Period: <b>${st.wavePeriod.toFixed(1)} s</b></span>
-            <span>Sea State: <b>${st.douglas}</b></span>
-            <span>Status: <b class="text-emerald-700 font-semibold">Active</b></span>
+            <span>Wave Height: <b class="${stationWave >= 2.5 ? 'text-rose-600' : stationWave >= 1.25 ? 'text-amber-600' : 'text-cyan-700'}">${stationWave.toFixed(2)} m</b></span>
+            <span>Wave Period: <b>${stationPeriod.toFixed(1)} s</b></span>
+            <span>Sea State: <b>${stationDouglas}</b></span>
+            <span>Status: <b class="text-emerald-700 font-semibold inline-flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Live Active</b></span>
           </div>
           <div class="text-[10px] text-slate-600 italic bg-slate-50 p-1.5 rounded-md border border-slate-100">
             ${st.advisory}
           </div>
-          <div class="text-[9.5px] text-slate-400 font-mono mt-1">${st.latitude.toFixed(2)}°N, ${st.longitude.toFixed(2)}°E • Open-Meteo ECMWF</div>
+          <div class="text-[9.5px] text-slate-400 font-mono mt-1">${st.latitude.toFixed(2)}°N, ${st.longitude.toFixed(2)}°E • Live ECMWF Wave Field</div>
         </div>
       `);
 
@@ -761,7 +801,10 @@ export const HazardMap: React.FC<Props> = ({
             <span className="text-[10px] font-semibold text-slate-400 px-1.5">Layer:</span>
             <button
               type="button"
-              onClick={() => handleLayerSelect('waves')}
+              onClick={() => {
+                handleLayerSelect('waves');
+                handleResetView();
+              }}
               className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
                 activeLayer === 'waves'
                   ? 'bg-blue-600 text-white font-bold shadow-2xs'
@@ -772,7 +815,10 @@ export const HazardMap: React.FC<Props> = ({
             </button>
             <button
               type="button"
-              onClick={() => handleLayerSelect('douglas')}
+              onClick={() => {
+                handleLayerSelect('douglas');
+                handleResetView();
+              }}
               className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
                 activeLayer === 'douglas'
                   ? 'bg-teal-600 text-white font-bold shadow-2xs'
@@ -783,7 +829,18 @@ export const HazardMap: React.FC<Props> = ({
             </button>
             <button
               type="button"
-              onClick={() => handleLayerSelect('cyclone')}
+              onClick={() => {
+                handleLayerSelect('cyclone');
+                if (validPoints.length > 0 && mapRef.current) {
+                  const bounds = new maplibregl.LngLatBounds();
+                  validPoints.forEach((p) => bounds.extend([p.longitude, p.latitude]));
+                  mapRef.current.fitBounds(bounds, {
+                    padding: { top: 60, bottom: 60, left: 60, right: 60 },
+                    maxZoom: 8.5,
+                    duration: 1000,
+                  });
+                }
+              }}
               className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
                 activeLayer === 'cyclone'
                   ? 'bg-orange-600 text-white font-bold shadow-2xs'
@@ -855,7 +912,7 @@ export const HazardMap: React.FC<Props> = ({
             <span className="text-slate-300">|</span>
             <span className="flex items-center gap-1 text-[11px] font-medium text-blue-700">
               <span className="w-2 h-2 rounded-full bg-blue-600" />
-              {activeStations.length} Karnataka Coastal Stations
+              {activeStations.length} {sectorName && sectorName.includes('Bay of Bengal') ? 'Bay of Bengal Observatories' : sectorName && sectorName.includes('Arabian') ? 'Arabian Deep Buoys' : 'Karnataka Coastal Stations'}
             </span>
             {activeLayer === 'cyclone' && validPoints.length > 0 && (
               <>

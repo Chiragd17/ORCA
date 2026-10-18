@@ -35,6 +35,10 @@ def to_utc_datetime(dt_val: datetime | str | None) -> datetime | None:
     return dt.astimezone(UTC)
 
 
+# In-memory fast cache for Open-Meteo observations (10 minute TTL)
+_OPEN_METEO_CACHE: dict[str, tuple[float, tuple[list[MarineObservationPoint], list[EvidenceRecord], list[str]]]] = {}
+_OM_CACHE_TTL = 600.0
+
 class OpenMeteoMarineClient:
     """
     Client for Open-Meteo Marine API.
@@ -44,7 +48,7 @@ class OpenMeteoMarineClient:
     def __init__(
         self,
         base_url: str | None = None,
-        timeout_seconds: float = 12.0,
+        timeout_seconds: float = 1.8,
         demo_mode: bool = False,
     ):
         self.base_url = base_url or settings.OPEN_METEO_BASE_URL
@@ -64,6 +68,13 @@ class OpenMeteoMarineClient:
         Returns:
             (observations, evidence_records, limitations)
         """
+        cache_key = f"{round(latitude, 2)}_{round(longitude, 2)}_{start_date}_{end_date}"
+        now_ts = datetime.now(UTC).timestamp()
+        if cache_key in _OPEN_METEO_CACHE:
+            cached_ts, cached_result = _OPEN_METEO_CACHE[cache_key]
+            if now_ts - cached_ts < _OM_CACHE_TTL:
+                return cached_result
+
         limitations: list[str] = []
         evidence_records: list[EvidenceRecord] = []
         observations: list[MarineObservationPoint] = []

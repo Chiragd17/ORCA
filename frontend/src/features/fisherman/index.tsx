@@ -281,6 +281,9 @@ export const FishermanWorkspace: React.FC = () => {
         workspace="fisherman"
         workspaceTitle="Fisherman"
         quickPrompts={quickPrompts}
+        locationName={highlightSector ? `${highlightSector} Coastal Sector` : 'Karnataka Coastal Shelf'}
+        latitude={highlightSector === 'Karwar' ? 14.81 : highlightSector === 'Malpe' ? 13.35 : 12.91}
+        longitude={highlightSector === 'Karwar' ? 74.13 : highlightSector === 'Malpe' ? 74.70 : 74.85}
         onAnalysisGenerated={() => {
           setHighlightSector('Mangaluru');
         }}
