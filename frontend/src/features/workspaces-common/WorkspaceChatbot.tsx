@@ -102,10 +102,51 @@ export const WorkspaceChatbot: React.FC<Props> = ({
         // Fallback to initial response
       }
 
-      // Format preview text for chat snippet
-      const cleanSummary = detailAnswer
-        ? detailAnswer.split('\n\n')[0].replace(/^#+\s*/, '').replace(/\*\*/g, '')
-        : `Investigation ${invId} successfully executed across ${plannedAgents.join(', ')}.`;
+      // Format complete operational answer for chat bubble
+      let cleanSummary = '';
+      if (detailAnswer) {
+        // 1. Extract Section 1 (Operational Assessment & Decision Guidance)
+        const sec1Match = detailAnswer.match(/####\s+1\.\s+Operational Assessment[\s\S]*?(?=####\s+2\.|$)/i);
+        if (sec1Match) {
+          const sec1Content = sec1Match[0]
+            .replace(/^####\s+1\.\s+[^\n]+\n+/, '')
+            .replace(/^-\s+/gm, '• ')
+            .trim();
+          cleanSummary += sec1Content;
+        } else {
+          // Fallback: strip title header and query
+          const rawStripped = detailAnswer
+            .replace(/^###\s+[^\n]+\n+/, '')
+            .replace(/\*\*Query:\*\*[^\n]+\n+/, '')
+            .split(/####\s+\d+\.\s+Evidence/)[0]
+            .trim();
+          cleanSummary += rawStripped;
+        }
+
+        // 2. Extract top 2 Specialist Findings if present for extra evidentiary depth
+        const sec2Match = detailAnswer.match(/####\s+2\.\s+Specialist Observations[\s\S]*?(?=####\s+3\.|$)/i);
+        if (sec2Match) {
+          const findingLines = sec2Match[0]
+            .split('\n')
+            .filter(l => l.trim().startsWith('- [Finding') || l.trim().startsWith('- *[Finding') || l.trim().startsWith('- **[Finding'))
+            .slice(0, 2)
+            .map(l => {
+              // Clean finding tags for compact bubble display
+              return l.replace(/^-\s+/, '• ')
+                .replace(/\[Finding\s+#?\d+\]\s*/i, '')
+                .replace(/\*\((?:Status|State):\s*[A-Za-z_]+\)\*/i, '')
+                .trim();
+            });
+
+          if (findingLines.length > 0) {
+            cleanSummary += `\n\n**Specialist Observations:**\n` + findingLines.join('\n');
+          }
+        }
+      }
+
+      if (!cleanSummary || cleanSummary.trim().length === 0) {
+        cleanSummary = `Investigation ${invId} successfully completed. Verified evidence and findings generated across ${plannedAgents.join(', ')}.`;
+      }
 
       const botMsg: Message = {
         id: `bot_${Date.now()}`,
@@ -222,7 +263,81 @@ export const WorkspaceChatbot: React.FC<Props> = ({
                         : 'bg-white border border-[#d8e4f0] text-slate-800 rounded-bl-xs shadow-2xs'
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                    {isUser ? (
+                      <p className="whitespace-pre-wrap">{msg.text}</p>
+                    ) : (
+                      <div className="space-y-1.5 text-xs text-[#1e293b]">
+                        {msg.text.split('\n').map((rawLine, idx) => {
+                          const line = rawLine.trim();
+                          if (!line) return <div key={idx} className="h-1" />;
+
+                          // Operational Status Badge (🟢, ⚠️, 🚨)
+                          if (line.includes('🟢') || line.includes('⚠️') || line.includes('🚨')) {
+                            const isGreen = line.includes('🟢');
+                            const isAmber = line.includes('⚠️');
+                            const bannerColor = isGreen
+                              ? 'bg-emerald-50 text-emerald-950 border-emerald-300'
+                              : isAmber
+                              ? 'bg-amber-50 text-amber-950 border-amber-300'
+                              : 'bg-rose-50 text-rose-950 border-rose-300';
+                            const cleanTitle = line.replace(/\*\*/g, '').replace(/^[•\-]\s*/, '');
+                            return (
+                              <div
+                                key={idx}
+                                className={`p-2 rounded-xl border text-[11px] font-bold ${bannerColor} shadow-2xs leading-snug`}
+                              >
+                                {cleanTitle}
+                              </div>
+                            );
+                          }
+
+                          // Directives or Section Header
+                          if (line.toLowerCase().includes('what to do') || line.toLowerCase().includes('directives') || line.toLowerCase().includes('guidance')) {
+                            return (
+                              <div key={idx} className="font-extrabold text-[#0a1628] text-[11.5px] mt-2 mb-1 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                                <span>{line.replace(/\*\*/g, '').replace(/^[•\-]\s*/, '')}</span>
+                              </div>
+                            );
+                          }
+
+                          // Bullets
+                          const isBullet = line.startsWith('•') || line.startsWith('-') || /^\d+\./.test(line);
+                          const cleanContent = line.replace(/^[•\-]\s*/, '');
+
+                          // Inline Markdown: **bold** and `code`
+                          const segments = cleanContent.split(/(\*\*.*?\*\*|`.*?`)/g);
+                          const rendered = segments.map((seg, sIdx) => {
+                            if (seg.startsWith('**') && seg.endsWith('**')) {
+                              return <strong key={sIdx} className="font-bold text-[#0a1628]">{seg.slice(2, -2)}</strong>;
+                            }
+                            if (seg.startsWith('`') && seg.endsWith('`')) {
+                              return (
+                                <code key={sIdx} className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono text-[10.5px] border border-indigo-100 font-semibold">
+                                  {seg.slice(1, -1)}
+                                </code>
+                              );
+                            }
+                            return seg;
+                          });
+
+                          if (isBullet) {
+                            return (
+                              <div key={idx} className="flex items-start gap-1.5 text-xs text-[#334155] leading-relaxed pl-0.5">
+                                <span className="text-indigo-500 font-bold text-xs select-none">•</span>
+                                <div className="flex-1">{rendered}</div>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <p key={idx} className="text-xs text-[#334155] leading-relaxed">
+                              {rendered}
+                            </p>
+                          );
+                        })}
+                      </div>
+                    )}
 
                     {/* Investigation Metadata & Action Button */}
                     {msg.investigationId && (
