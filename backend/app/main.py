@@ -50,6 +50,17 @@ app.include_router(health_router, prefix="/api/v1")
 app.include_router(api_router, prefix="/api/v1")
 
 
+@app.get("/")
+async def root():
+    return {
+        "name": settings.PROJECT_NAME,
+        "version": settings.VERSION,
+        "status": "online",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app.main:app", host=settings.APP_HOST, port=settings.APP_PORT, reload=True)
