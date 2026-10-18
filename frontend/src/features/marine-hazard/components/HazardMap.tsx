@@ -554,11 +554,11 @@ export const HazardMap: React.FC<Props> = ({
       const el = document.createElement('div');
       el.className = 'group cursor-pointer relative';
 
-      // Live wave height scaled slightly if user selected a custom wave
+      // Live wave height: keep constant across canonical shelf or use significantWaveHeight
       const displayedWave =
         significantWaveHeight !== null && significantWaveHeight !== undefined
-          ? Math.max(0.4, Number((st.baseWave * (significantWaveHeight / 0.72)).toFixed(2)))
-          : st.baseWave;
+          ? Number(significantWaveHeight.toFixed(2))
+          : 0.72;
 
       let metricBadge = `${displayedWave.toFixed(2)}m`;
       let badgeTextColor = 'text-cyan-300';

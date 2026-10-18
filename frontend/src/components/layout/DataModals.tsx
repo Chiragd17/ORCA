@@ -20,6 +20,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { apiClient } from '../../lib/api-client';
+import { fetchAuthoritativeMarineTelemetry } from '../../lib/liveTelemetry';
 
 export type ModalType =
   | 'live_data'
@@ -122,9 +123,9 @@ export const DataModals: React.FC<DataModalsProps> = ({ activeModal, onClose }) 
     time: string;
     loading: boolean;
   }>({
-    waveHeight: 0.62,
+    waveHeight: 0.72,
     wavePeriod: 9.5,
-    swellHeight: 0.52,
+    swellHeight: 0.56,
     windWave: 0.02,
     time: new Date().toLocaleTimeString(),
     loading: false,
@@ -175,20 +176,16 @@ export const DataModals: React.FC<DataModalsProps> = ({ activeModal, onClose }) 
   useEffect(() => {
     if (activeModal === 'live_data') {
       setLiveData(prev => ({ ...prev, loading: true }));
-      // Fetch live conditions
-      fetch('https://marine-api.open-meteo.com/v1/marine?latitude=12.9141&longitude=74.856&current=wave_height,wave_period,swell_wave_height,wind_wave_height&timezone=UTC')
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.current) {
-            setLiveData({
-              waveHeight: data.current.wave_height ?? 0.62,
-              wavePeriod: data.current.wave_period ?? 9.5,
-              swellHeight: data.current.swell_wave_height ?? 0.52,
-              windWave: data.current.wind_wave_height ?? 0.02,
-              time: new Date().toLocaleTimeString(),
-              loading: false,
-            });
-          }
+      fetchAuthoritativeMarineTelemetry()
+        .then(t => {
+          setLiveData({
+            waveHeight: t.waveHeight,
+            wavePeriod: t.wavePeriod,
+            swellHeight: t.swellHeight,
+            windWave: t.windWaveHeight,
+            time: t.lastUpdated,
+            loading: false,
+          });
         })
         .catch(() => {
           setLiveData(prev => ({ ...prev, loading: false }));
@@ -560,7 +557,7 @@ export const DataModals: React.FC<DataModalsProps> = ({ activeModal, onClose }) 
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                       <div>
                         <p className="font-medium text-[#0f172a]">Open-Meteo Marine API</p>
-                        <p className="text-[10px] text-[#64748b]">Real-time Arabian Sea coastal grid (12.91°N, 74.86°E)</p>
+                        <p className="text-[10px] text-[#64748b]">Real-time Karnataka shelf coastal grid (13.85°N, 74.50°E)</p>
                       </div>
                     </div>
                     <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-[10px]">

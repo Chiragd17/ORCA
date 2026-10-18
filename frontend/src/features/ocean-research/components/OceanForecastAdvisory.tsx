@@ -285,7 +285,7 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
 
         for (let i = 0; i < count; i++) {
           const t = mData.hourly.time[i];
-          const w = mData.hourly.wave_height[i] ?? 0.66;
+          const w = mData.hourly.wave_height[i] ?? 0.72;
           const g = wData?.hourly?.wind_gusts_10m?.[i] ?? 20.9;
 
           if (w > peakW) {
@@ -311,8 +311,8 @@ export const OceanForecastAdvisory: React.FC<Props> = ({
           hourlyList.push({
             time: t,
             wave_height: w,
-            wave_period: mData.hourly.wave_period?.[i] ?? 8.0,
-            swell_height: mData.hourly.swell_wave_height?.[i] ?? 0.4,
+            wave_period: mData.hourly.wave_period?.[i] ?? 9.5,
+            swell_height: mData.hourly.swell_wave_height?.[i] ?? 0.56,
             wind_speed: wData?.hourly?.wind_speed_10m?.[i] ?? 14.0,
             wind_gusts: g,
             wind_direction: wData?.hourly?.wind_direction_10m?.[i] ?? 280,

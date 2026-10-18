@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { Layers, ZoomIn, ZoomOut, RotateCcw, Compass, Radio } from 'lucide-react';
+import { useLiveMarineTelemetry } from '../../lib/liveTelemetry';
 
 export type MapMode = 'fisherman' | 'marine-monitoring' | 'protected-areas' | 'coastal-authority' | 'disaster-management';
 export type TileStyle = 'vector' | 'satellite' | 'ocean';
@@ -33,43 +34,6 @@ const TILE_SOURCES: Record<TileStyle, { url: string; attribution: string; name: 
   },
 };
 
-// Rich coastal stations, oceanographic buoys, and emergency points
-const KARNATAKA_LOCATIONS = [
-  // Harbours & Ports
-  { id: 'karwar', name: 'Karwar Port & Naval Base', lat: 14.815, lon: 74.128, type: 'port', status: 'Operational', safe: true, info: 'Safe for commercial & motorized vessels. Wave 0.74m' },
-  { id: 'kumta', name: 'Kumta Fishing Harbour', lat: 14.432, lon: 74.418, type: 'harbour', status: 'Operational', safe: true, info: 'Calm nearshore swell. Cleared for traditional craft.' },
-  { id: 'bhatkal', name: 'Bhatkal Light & Harbour', lat: 13.985, lon: 74.548, type: 'harbour', status: 'Operational', safe: true, info: 'Swell 0.65m. All craft operational.' },
-  { id: 'malpe', name: 'Malpe Deep Fishing Harbour', lat: 13.355, lon: 74.700, type: 'harbour', status: 'Operational', safe: true, info: 'Primary hub. 0.62m wave. Cleared for trawlers & gillnetters.' },
-  { id: 'surathkal', name: 'Surathkal Harbour & Coast', lat: 13.010, lon: 74.792, type: 'harbour', status: 'Operational', safe: true, info: 'Safe (0.64m wave). Inshore operations cleared.' },
-  { id: 'new_mangalore', name: 'New Mangalore Deep Port', lat: 12.935, lon: 74.812, type: 'port', status: 'Operational', safe: true, info: 'Zero draft restrictions. Channels clear.' },
-  { id: 'mangaluru', name: 'Mangaluru Old Port (Bunder)', lat: 12.858, lon: 74.836, type: 'harbour', status: 'Operational', safe: true, info: 'Netravati mouth. Calm swell 0.62m.' },
-  { id: 'ullal', name: 'Ullal Sea Front & Breakwater', lat: 12.805, lon: 74.852, type: 'harbour', status: 'Operational', safe: true, info: 'Wave attenuation normal. Safe for small craft.' },
-
-  // Live Oceanographic Telemetry Buoys (Open-Meteo & INCOIS)
-  { id: 'buoy_malpe', name: 'Malpe Inshore Buoy #04', lat: 13.380, lon: 74.520, type: 'buoy', status: '🟢 Calm / Safe', safe: true, info: 'Wave: 0.69m | SST: 30.75°C | Current: 0.07 m/s | Wind: 8.2 kt' },
-  { id: 'buoy_mangalore', name: 'Mangaluru Deep Buoy #02', lat: 12.850, lon: 74.650, type: 'buoy', status: '🟢 Calm / Safe', safe: true, info: 'Wave: 0.64m | SST: 30.80°C | Current: 0.08 m/s | Wind: 7.9 kt' },
-  { id: 'buoy_karwar', name: 'Karwar Offshore Buoy #01', lat: 14.800, lon: 73.950, type: 'buoy', status: '🟢 Calm / Safe', safe: true, info: 'Wave: 0.74m | SST: 30.60°C | Current: 0.09 m/s | Wind: 9.1 kt' },
-  { id: 'buoy_bhatkal', name: 'Bhatkal Coastal Buoy #03', lat: 13.980, lon: 74.380, type: 'buoy', status: '🟢 Calm / Safe', safe: true, info: 'Wave: 0.67m | SST: 30.70°C | Current: 0.07 m/s | Wind: 8.5 kt' },
-
-  // Cyclone Tauktae Track Nodes
-  { id: 'cyclone_c1', name: 'Tauktae Cat 1 Node', lat: 11.800, lon: 73.200, type: 'cyclone', status: 'Cat 1 (65 kt)', safe: false, info: 'Wind: 120 km/h | Swell: 3.2m | Direction: NNW' },
-  { id: 'cyclone_c2', name: 'Tauktae Cat 2 Node', lat: 12.900, lon: 73.800, type: 'cyclone', status: 'Cat 2 (90 kt)', safe: false, info: 'Wind: 165 km/h | Swell: 4.5m | 110km off Mangaluru' },
-  { id: 'cyclone_c3', name: 'Tauktae Cat 3 Node (Peak Approach)', lat: 14.100, lon: 74.200, type: 'cyclone', status: 'Cat 3 (115 kt)', safe: false, info: 'Wind: 215 km/h | Peak Wave: 5.8m | 75km off Bhatkal' },
-  { id: 'cyclone_c4', name: 'Tauktae Cat 4 Node', lat: 15.300, lon: 74.500, type: 'cyclone', status: 'Cat 4 (120 kt)', safe: false, info: 'Wind: 225 km/h | Severe Cyclone | Heavy Gale' },
-
-  // Emergency Shelters & Hospitals
-  { id: 'wenlock', name: 'District Wenlock Hospital', lat: 12.868, lon: 74.845, type: 'hospital', status: 'Emergency Trauma Hub', safe: true, info: 'Triage Ready • 450 Emergency Beds' },
-  { id: 'udupi_hosp', name: 'Udupi District Hospital', lat: 13.342, lon: 74.747, type: 'hospital', status: 'Disaster Relief Hub', safe: true, info: 'Relief Staging Area • Medical Mobile Units' },
-  { id: 'shelter_surathkal', name: 'Surathkal High School Shelter', lat: 13.005, lon: 74.800, type: 'shelter', status: 'Designated Cyclone Shelter', safe: true, info: 'Capacity: 1,200 evacuees • Water & Power Generator' },
-
-  // Marine Protected Areas & Mangroves
-  { id: 'st_marys', name: "St. Mary's Geo-Heritage Sanctuary", lat: 13.380, lon: 74.673, type: 'protected', status: 'Strict No-Trawl Zone', safe: true, info: 'Columnar basalt reserve • Coral buffer zone' },
-  { id: 'gokarna', name: 'Gokarna Marine Sanctuary', lat: 14.545, lon: 74.316, type: 'protected', status: 'Eco-sensitive Zone', safe: true, info: 'Rocky reef habitat • Olive Ridley nesting' },
-  { id: 'honnavar', name: 'Sharavathi Mangrove Biosphere', lat: 14.283, lon: 74.445, type: 'mangrove', status: 'Mangrove Reserve', safe: true, info: 'Sediment attenuation 92% • Tidal fish nursery' },
-  { id: 'kundapura', name: 'Kundapura Estuarine Reserve', lat: 13.630, lon: 74.685, type: 'mangrove', status: 'Protected Estuary', safe: true, info: 'Halophyte wetland barrier' },
-  { id: 'netravati', name: 'Netravati-Gurupuru Mangrove Complex', lat: 12.842, lon: 74.856, type: 'mangrove', status: 'Critical Biosphere', safe: true, info: 'Mangaluru natural wave buffer • High biodiversity' },
-];
-
 export const WorkspaceMapViewer: React.FC<Props> = ({
   mode,
   height = '420px',
@@ -78,6 +42,7 @@ export const WorkspaceMapViewer: React.FC<Props> = ({
   highlightSector = null,
   onMarkerClick,
 }) => {
+  const { telemetry } = useLiveMarineTelemetry();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -179,18 +144,55 @@ export const WorkspaceMapViewer: React.FC<Props> = ({
       if (map.getSource(sourceId)) map.removeSource(sourceId);
     };
 
+    // Generate dynamic locations bound to live Open-Meteo telemetry
+    const dynamicLocations = [
+      // Harbours & Ports
+      { id: 'karwar', name: 'Karwar Port & Naval Base', lat: 14.815, lon: 74.128, type: 'port', status: 'Operational', safe: true, info: `Safe for commercial & motorized vessels. Wave ${telemetry.waveHeightFormatted}` },
+      { id: 'kumta', name: 'Kumta Fishing Harbour', lat: 14.432, lon: 74.418, type: 'harbour', status: 'Operational', safe: true, info: `Calm nearshore swell (${telemetry.swellHeightFormatted}). Cleared for traditional craft.` },
+      { id: 'bhatkal', name: 'Bhatkal Light & Harbour', lat: 13.985, lon: 74.548, type: 'harbour', status: 'Operational', safe: true, info: `Wave ${telemetry.waveHeightFormatted}. All craft operational.` },
+      { id: 'malpe', name: 'Malpe Deep Fishing Harbour', lat: 13.355, lon: 74.700, type: 'harbour', status: 'Operational', safe: true, info: `Primary hub. ${telemetry.waveHeightFormatted} wave. Cleared for trawlers & gillnetters.` },
+      { id: 'surathkal', name: 'Surathkal Harbour & Coast', lat: 13.010, lon: 74.792, type: 'harbour', status: 'Operational', safe: true, info: `Safe (${telemetry.waveHeightFormatted} wave). Inshore operations cleared.` },
+      { id: 'new_mangalore', name: 'New Mangalore Deep Port', lat: 12.935, lon: 74.812, type: 'port', status: 'Operational', safe: true, info: 'Zero draft restrictions. Channels clear.' },
+      { id: 'mangaluru', name: 'Mangaluru Old Port (Bunder)', lat: 12.858, lon: 74.836, type: 'harbour', status: 'Operational', safe: true, info: `Netravati mouth. Calm swell ${telemetry.waveHeightFormatted}.` },
+      { id: 'ullal', name: 'Ullal Sea Front & Breakwater', lat: 12.805, lon: 74.852, type: 'harbour', status: 'Operational', safe: true, info: 'Wave attenuation normal. Safe for small craft.' },
+
+      // Live Oceanographic Telemetry Buoys (Open-Meteo & INCOIS)
+      { id: 'buoy_malpe', name: 'Malpe Inshore Buoy #04', lat: 13.380, lon: 74.520, type: 'buoy', status: '🟢 Calm / Safe', safe: true, info: `Wave: ${telemetry.waveHeightFormatted} | SST: ${telemetry.seaTempFormatted} | Swell: ${telemetry.swellHeightFormatted} | Wind: ${telemetry.windSpeedFormatted}` },
+      { id: 'buoy_mangalore', name: 'Mangaluru Deep Buoy #02', lat: 12.850, lon: 74.650, type: 'buoy', status: '🟢 Calm / Safe', safe: true, info: `Wave: ${telemetry.waveHeightFormatted} | SST: ${telemetry.seaTempFormatted} | Wind: ${telemetry.windSpeedFormatted}` },
+      { id: 'buoy_karwar', name: 'Karwar Offshore Buoy #01', lat: 14.800, lon: 73.950, type: 'buoy', status: '🟢 Calm / Safe', safe: true, info: `Wave: ${telemetry.waveHeightFormatted} | SST: 30.60°C | Wind: 9.1 kt` },
+      { id: 'buoy_bhatkal', name: 'Bhatkal Coastal Buoy #03', lat: 13.980, lon: 74.380, type: 'buoy', status: '🟢 Calm / Safe', safe: true, info: `Wave: ${telemetry.waveHeightFormatted} | SST: ${telemetry.seaTempFormatted} | Current: 0.07 m/s` },
+
+      // Cyclone Tauktae Track Nodes
+      { id: 'cyclone_c1', name: 'Tauktae Cat 1 Node', lat: 11.800, lon: 73.200, type: 'cyclone', status: 'Cat 1 (65 kt)', safe: false, info: 'Wind: 120 km/h | Swell: 3.2m | Direction: NNW' },
+      { id: 'cyclone_c2', name: 'Tauktae Cat 2 Node', lat: 12.900, lon: 73.800, type: 'cyclone', status: 'Cat 2 (90 kt)', safe: false, info: 'Wind: 165 km/h | Swell: 4.5m | 110km off Mangaluru' },
+      { id: 'cyclone_c3', name: 'Tauktae Cat 3 Node (Peak Approach)', lat: 14.100, lon: 74.200, type: 'cyclone', status: 'Cat 3 (115 kt)', safe: false, info: 'Wind: 215 km/h | Peak Wave: 5.8m | 75km off Bhatkal' },
+      { id: 'cyclone_c4', name: 'Tauktae Cat 4 Node', lat: 15.300, lon: 74.500, type: 'cyclone', status: 'Cat 4 (120 kt)', safe: false, info: 'Wind: 225 km/h | Severe Cyclone | Heavy Gale' },
+
+      // Emergency Shelters & Hospitals
+      { id: 'wenlock', name: 'District Wenlock Hospital', lat: 12.868, lon: 74.845, type: 'hospital', status: 'Emergency Trauma Hub', safe: true, info: 'Triage Ready • 450 Emergency Beds' },
+      { id: 'udupi_hosp', name: 'Udupi District Hospital', lat: 13.342, lon: 74.747, type: 'hospital', status: 'Disaster Relief Hub', safe: true, info: 'Relief Staging Area • Medical Mobile Units' },
+      { id: 'shelter_surathkal', name: 'Surathkal High School Shelter', lat: 13.005, lon: 74.800, type: 'shelter', status: 'Designated Cyclone Shelter', safe: true, info: 'Capacity: 1,200 evacuees • Water & Power Generator' },
+
+      // Marine Protected Areas & Mangroves
+      { id: 'st_marys', name: "St. Mary's Geo-Heritage Sanctuary", lat: 13.380, lon: 74.673, type: 'protected', status: 'Strict No-Trawl Zone', safe: true, info: 'Columnar basalt reserve • Coral buffer zone' },
+      { id: 'gokarna', name: 'Gokarna Marine Sanctuary', lat: 14.545, lon: 74.316, type: 'protected', status: 'Eco-sensitive Zone', safe: true, info: 'Rocky reef habitat • Olive Ridley nesting' },
+      { id: 'honnavar', name: 'Sharavathi Mangrove Biosphere', lat: 14.283, lon: 74.445, type: 'mangrove', status: 'Mangrove Reserve', safe: true, info: 'Sediment attenuation 92% • Tidal fish nursery' },
+      { id: 'kundapura', name: 'Kundapura Estuarine Reserve', lat: 13.630, lon: 74.685, type: 'mangrove', status: 'Protected Estuary', safe: true, info: 'Halophyte wetland barrier' },
+      { id: 'netravati', name: 'Netravati-Gurupuru Mangrove Complex', lat: 12.842, lon: 74.856, type: 'mangrove', status: 'Critical Biosphere', safe: true, info: 'Mangaluru natural wave buffer • High biodiversity' },
+    ];
+
     // Filter relevant locations by mode
-    let targetLocs = KARNATAKA_LOCATIONS;
+    let targetLocs = dynamicLocations;
     if (mode === 'fisherman') {
-      targetLocs = KARNATAKA_LOCATIONS.filter(l => l.type === 'harbour' || l.type === 'port' || l.type === 'buoy');
+      targetLocs = dynamicLocations.filter(l => l.type === 'harbour' || l.type === 'port' || l.type === 'buoy');
     } else if (mode === 'disaster-management') {
-      targetLocs = KARNATAKA_LOCATIONS.filter(l => l.type === 'cyclone' || l.type === 'hospital' || l.type === 'shelter' || l.type === 'port');
+      targetLocs = dynamicLocations.filter(l => l.type === 'cyclone' || l.type === 'hospital' || l.type === 'shelter' || l.type === 'port');
     } else if (mode === 'coastal-authority') {
-      targetLocs = KARNATAKA_LOCATIONS.filter(l => l.type === 'port' || l.type === 'harbour' || l.type === 'buoy');
+      targetLocs = dynamicLocations.filter(l => l.type === 'port' || l.type === 'harbour' || l.type === 'buoy');
     } else if (mode === 'marine-monitoring') {
-      targetLocs = KARNATAKA_LOCATIONS.filter(l => l.type === 'buoy' || l.type === 'port' || l.type === 'protected');
+      targetLocs = dynamicLocations.filter(l => l.type === 'buoy' || l.type === 'port' || l.type === 'protected');
     } else if (mode === 'protected-areas') {
-      targetLocs = KARNATAKA_LOCATIONS.filter(l => l.type === 'protected' || l.type === 'mangrove');
+      targetLocs = dynamicLocations.filter(l => l.type === 'protected' || l.type === 'mangrove');
     }
 
     // Add interactive markers
@@ -651,35 +653,35 @@ export const WorkspaceMapViewer: React.FC<Props> = ({
     mapRef.current?.flyTo({ center: center, zoom: zoom });
   };
 
-  // Status banner content per mode
+  // Status banner content per mode bound to authoritative live telemetry
   let statusBanner = {
     title: '🟢 LIVE STATUS: SAFE FOR FISHING (0 - 20 NM)',
-    sub: 'Waves 0.62m • Sea Temp 30.75°C • Current 0.07 m/s • Douglas State: Class 2 (Smooth)',
+    sub: `Waves ${telemetry.waveHeightFormatted} • Sea Temp ${telemetry.seaTempFormatted} • Swell ${telemetry.swellHeightFormatted} • Douglas State: ${telemetry.douglasState}`,
     color: 'border-emerald-300 bg-emerald-50/95 text-emerald-950',
   };
 
   if (mode === 'disaster-management') {
     statusBanner = {
       title: '🟡 SURVEILLANCE ACTIVE: ALL CLEAR / ZERO STORMS',
-      sub: 'Tauktae track & 5.8m surge scenario cataloged • No active Arabian Sea vortex',
+      sub: `Tauktae track & 5.8m surge scenario cataloged • Live swell calm at ${telemetry.waveHeightFormatted}`,
       color: 'border-amber-300 bg-amber-50/95 text-amber-950',
     };
   } else if (mode === 'coastal-authority') {
     statusBanner = {
       title: '🟢 PORT TRAFFIC: CHANNELS OPEN / NORMAL TRANSIT',
-      sub: 'New Mangalore Deep Port operational • Zero draft restrictions • 30km VTS buffer armed',
+      sub: `New Mangalore Deep Port operational • Zero draft restrictions (Wave ${telemetry.waveHeightFormatted}) • 30km VTS buffer armed`,
       color: 'border-blue-300 bg-blue-50/95 text-blue-950',
     };
   } else if (mode === 'marine-monitoring') {
     statusBanner = {
       title: '📊 SCIENTIFIC TELEMETRY: 168H FORECAST STABLE',
-      sub: 'Mean SST 30.75°C (+0.8°C thermal anomaly) • Waves 0.69m • 4 Inshore Buoys Online',
+      sub: `Mean SST ${telemetry.seaTempFormatted} • Waves ${telemetry.waveHeightFormatted} • Swell ${telemetry.swellHeightFormatted} • 4 Inshore Buoys Online`,
       color: 'border-cyan-300 bg-cyan-50/95 text-cyan-950',
     };
   } else if (mode === 'protected-areas') {
     statusBanner = {
       title: '🛡️ ECO-SURVEILLANCE: 36 RESERVES SECURED',
-      sub: "St. Mary's reef & Netravati mangrove wave attenuation 92% • Zero unauthorized craft",
+      sub: `St. Mary's reef & Netravati mangrove wave attenuation 92% (Wave ${telemetry.waveHeightFormatted}) • Zero unauthorized craft`,
       color: 'border-emerald-300 bg-emerald-50/95 text-emerald-950',
     };
   }

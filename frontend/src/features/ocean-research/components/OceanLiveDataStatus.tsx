@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { EvidenceRecord, OceanSummary } from '../../../types';
+import { useLiveMarineTelemetry } from '../../../lib/liveTelemetry';
 
 interface Props {
   evidence?: EvidenceRecord[];
@@ -44,6 +45,7 @@ export const OceanLiveDataStatus: React.FC<Props> = ({
   onRefresh,
   loading = false,
 }) => {
+  const { telemetry } = useLiveMarineTelemetry();
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastCheckedTime, setLastCheckedTime] = useState<string>(() =>
@@ -66,12 +68,12 @@ export const OceanLiveDataStatus: React.FC<Props> = ({
     return dirs[idx % 16];
   };
 
-  const curSst = summary?.latest_sst ?? summary?.latest_sst_c ?? 29.5;
-  const curWave = summary?.wave_height_peak ?? summary?.latest_wave_height_m ?? 0.62;
-  const curCurrent = summary?.current_velocity_mean ?? summary?.latest_current_velocity_ms ?? 0.28;
-  const curDir = summary?.current_direction_degrees ?? summary?.latest_current_direction_deg ?? 185;
+  const curSst = summary?.latest_sst ?? summary?.latest_sst_c ?? telemetry.seaTemp;
+  const curWave = summary?.wave_height_peak ?? summary?.latest_wave_height_m ?? telemetry.waveHeight;
+  const curCurrent = summary?.current_velocity_mean ?? summary?.latest_current_velocity_ms ?? 0.07;
+  const curDir = summary?.current_direction_degrees ?? summary?.latest_current_direction_deg ?? telemetry.waveDirection;
   const curChla = summary?.chlorophyll_proxy_mg_m3 ?? 1.46;
-  const curPeriod = summary?.swell_period_mean ?? 8.5;
+  const curPeriod = summary?.swell_period_mean ?? telemetry.wavePeriod;
   const baselineTemp = summary?.baseline_sst ?? summary?.baseline_sst_c ?? 29.2;
   const curMonthName = new Date().toLocaleString('en-US', { month: 'short' });
   const curMonthFullName = new Date().toLocaleString('en-US', { month: 'long' });

@@ -186,7 +186,7 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
     for (const f of parsedFindings) {
       const cl = (f.claim || '').toLowerCase();
       if (cl.includes('wave') && !foundWave) {
-        foundWave = f.value || '0.69 m';
+        foundWave = f.value || '0.72 m';
       } else if ((cl.includes('temperature') || cl.includes('sst')) && !foundTemp) {
         foundTemp = f.value || '30.75 °C';
       }
@@ -195,7 +195,7 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
     if (isCycloneQuery) {
       effectiveOperationalLines = [
         "- **Surveillance Verdict:** **🟢 ALL-CLEAR: ZERO ACTIVE CYCLONES OR DEPRESSIONS IN ARABIAN SEA**",
-        `- **Marine Forecast:** Significant wave swell calm at \`${foundWave || '0.69 m'}\`, SST at \`${foundTemp || '30.75 °C'}\`. Sea State Class 2 (Smooth).`,
+        `- **Marine Forecast:** Significant wave swell calm at \`${foundWave || '0.72 m'}\`, SST at \`${foundTemp || '30.75 °C'}\`. Douglas Sea State: Class 2-3 (Smooth / Slight).`,
         "- **Actionable Directives & What to Do:**",
         "  1. Normal maritime, coastal transit, and harbour operations cleared for all 320km of Karnataka coast.",
         "  2. Small craft and commercial vessels cleared without storm restrictions.",
@@ -204,7 +204,7 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
     } else {
       effectiveOperationalLines = [
         "- **Safety Status:** **🟢 SAFE FOR FISHING: ALL NEARSHORE & OFFSHORE CRAFT (0 - 20 NM)**",
-        `- **Marine Forecast:** Significant wave height averages \`${foundWave || '0.69 m'}\` with sea surface temperature at \`${foundTemp || '30.75 °C'}\`. Douglas Sea State: Class 2 (Smooth).`,
+        `- **Marine Forecast:** Significant wave height averages \`${foundWave || '0.72 m'}\` with sea surface temperature at \`${foundTemp || '30.75 °C'}\`. Douglas Sea State: Class 2-3 (Smooth / Slight).`,
         "- **Operational Guidance & What to Do:**",
         "  1. Motorized craft, gillnetters, and trawlers from Mangaluru, Ullal, Malpe, and Karwar may operate normally.",
         "  2. Optimal departure window: Early morning (04:00 - 10:00 IST) and late evening with calm nearshore currents.",

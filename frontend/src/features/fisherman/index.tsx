@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Ship,
   Waves,
@@ -13,20 +13,35 @@ import {
 import { WorkspaceMapViewer } from '../workspaces-common/WorkspaceMapViewer';
 import { WorkspaceChatbot } from '../workspaces-common/WorkspaceChatbot';
 import { WorkspaceAnalysisModal } from '../workspaces-common/WorkspaceAnalysisModal';
+import { useLiveMarineTelemetry } from '../../lib/liveTelemetry';
 
 export const FishermanWorkspace: React.FC = () => {
+  const { telemetry } = useLiveMarineTelemetry();
   const [analysisModalOpen, setAnalysisModalOpen] = useState(false);
   const [highlightSector, setHighlightSector] = useState<string | null>(null);
   const [activeAdvisory, setActiveAdvisory] = useState({
-    status: 'Safe for Fishing',
-    color: 'emerald',
-    description: 'Moderate waves. Good conditions for small and medium vessels.',
-    waveHeight: '0.62 m',
-    windSpeed: '9.4 km/h',
-    windDir: '98° E',
-    swellHeight: '0.52 m',
-    seaTemp: '28.7 °C',
+    status: telemetry.safetyStatus,
+    color: telemetry.isSafeForFishing ? 'emerald' : 'amber',
+    description: 'Calm swell. Excellent conditions for traditional, motorized, and trawler craft.',
+    waveHeight: telemetry.waveHeightFormatted,
+    windSpeed: telemetry.windSpeedFormatted,
+    windDir: `${telemetry.windDirection}° ${telemetry.windDirLabel}`,
+    swellHeight: telemetry.swellHeightFormatted,
+    seaTemp: telemetry.seaTempFormatted,
   });
+
+  useEffect(() => {
+    setActiveAdvisory(prev => ({
+      ...prev,
+      waveHeight: telemetry.waveHeightFormatted,
+      windSpeed: telemetry.windSpeedFormatted,
+      windDir: `${telemetry.windDirection}° ${telemetry.windDirLabel}`,
+      swellHeight: telemetry.swellHeightFormatted,
+      seaTemp: telemetry.seaTempFormatted,
+      status: telemetry.safetyStatus,
+      color: telemetry.isSafeForFishing ? 'emerald' : 'amber',
+    }));
+  }, [telemetry]);
 
   const quickPrompts = [
     'Is it safe to fish offshore Malpe tomorrow morning?',

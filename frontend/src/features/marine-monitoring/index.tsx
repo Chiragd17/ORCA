@@ -22,18 +22,20 @@ import {
 import { WorkspaceMapViewer } from '../workspaces-common/WorkspaceMapViewer';
 import { WorkspaceChatbot } from '../workspaces-common/WorkspaceChatbot';
 import { WorkspaceAnalysisModal } from '../workspaces-common/WorkspaceAnalysisModal';
+import { useLiveMarineTelemetry } from '../../lib/liveTelemetry';
 
 const FORECAST_7DAY_DATA = [
-  { day: 'May 18', waveHeight: 0.62, windSpeed: 9.4 },
-  { day: 'May 19', waveHeight: 0.85, windSpeed: 12.1 },
-  { day: 'May 20', waveHeight: 1.15, windSpeed: 16.5 },
-  { day: 'May 21', waveHeight: 0.72, windSpeed: 10.2 },
-  { day: 'May 22', waveHeight: 0.95, windSpeed: 13.8 },
-  { day: 'May 23', waveHeight: 0.68, windSpeed: 8.9 },
-  { day: 'May 24', waveHeight: 0.60, windSpeed: 7.5 },
+  { day: 'Today', waveHeight: 0.72, windSpeed: 14.8 },
+  { day: 'Day 2', waveHeight: 0.85, windSpeed: 12.1 },
+  { day: 'Day 3', waveHeight: 1.15, windSpeed: 16.5 },
+  { day: 'Day 4', waveHeight: 0.72, windSpeed: 10.2 },
+  { day: 'Day 5', waveHeight: 0.95, windSpeed: 13.8 },
+  { day: 'Day 6', waveHeight: 0.68, windSpeed: 8.9 },
+  { day: 'Day 7', waveHeight: 0.60, windSpeed: 7.5 },
 ];
 
 export const MarineMonitoringWorkspace: React.FC = () => {
+  const { telemetry } = useLiveMarineTelemetry();
   const [analysisModalOpen, setAnalysisModalOpen] = useState(false);
   const [highlightSector, setHighlightSector] = useState<string | null>(null);
 
@@ -132,27 +134,27 @@ export const MarineMonitoringWorkspace: React.FC = () => {
           <div className="space-y-2 text-xs">
             <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
               <span className="text-slate-500 flex items-center gap-1.5"><Waves className="w-3.5 h-3.5 text-blue-500" /> Wave Height</span>
-              <strong className="text-slate-900 font-bold font-mono">0.62 m</strong>
+              <strong className="text-slate-900 font-bold font-mono">{telemetry.waveHeightFormatted}</strong>
             </div>
 
             <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
               <span className="text-slate-500 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5 text-indigo-500" /> Wave Period</span>
-              <strong className="text-slate-900 font-bold font-mono">9.5 s</strong>
+              <strong className="text-slate-900 font-bold font-mono">{telemetry.wavePeriodFormatted}</strong>
             </div>
 
             <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
               <span className="text-slate-500 flex items-center gap-1.5"><Compass className="w-3.5 h-3.5 text-cyan-500" /> Swell Height</span>
-              <strong className="text-slate-900 font-bold font-mono">0.52 m (202° SSW)</strong>
+              <strong className="text-slate-900 font-bold font-mono">{telemetry.swellHeightFormatted} ({telemetry.waveDirectionFormatted})</strong>
             </div>
 
             <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
               <span className="text-slate-500 flex items-center gap-1.5"><Wind className="w-3.5 h-3.5 text-teal-500" /> Wind Speed</span>
-              <strong className="text-slate-900 font-bold font-mono">9.4 km/h (Gusts 15.7)</strong>
+              <strong className="text-slate-900 font-bold font-mono">{telemetry.windSpeedFormatted}</strong>
             </div>
 
             <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
               <span className="text-slate-500 flex items-center gap-1.5"><Compass className="w-3.5 h-3.5 text-purple-500" /> Wind Direction</span>
-              <strong className="text-slate-900 font-bold font-mono">98° E</strong>
+              <strong className="text-slate-900 font-bold font-mono">{telemetry.windDirection}° {telemetry.windDirLabel}</strong>
             </div>
 
             <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">

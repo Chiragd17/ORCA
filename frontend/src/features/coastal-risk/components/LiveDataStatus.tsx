@@ -46,17 +46,17 @@ export const LiveDataStatus: React.FC<Props> = ({ evidence: _evidence, investiga
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [telemetry, setTelemetry] = useState<TelemetryState>({
-    temp: 25.7,
-    humidity: 93,
-    precipitation: 0.1,
-    pressure: 1010.0,
-    windSpeed: 9.4,
-    windDirection: 98,
-    windGusts: 18.7,
-    waveHeight: 0.62,
+    temp: 29.5,
+    humidity: 85,
+    precipitation: 0.0,
+    pressure: 1010.4,
+    windSpeed: 14.8,
+    windDirection: 208,
+    windGusts: 16.2,
+    waveHeight: 0.72,
     wavePeriod: 9.5,
     waveDirection: 202,
-    swellHeight: 0.52,
+    swellHeight: 0.56,
     swellPeriod: 7.95,
     lastUpdated: new Date().toLocaleTimeString(),
     loading: false,
@@ -67,10 +67,10 @@ export const LiveDataStatus: React.FC<Props> = ({ evidence: _evidence, investiga
     try {
       const [weatherRes, marineRes] = await Promise.all([
         fetch(
-          'https://api.open-meteo.com/v1/forecast?latitude=13.20&longitude=74.75&current=temperature_2m,relative_humidity_2m,precipitation,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m'
+          'https://api.open-meteo.com/v1/forecast?latitude=13.85&longitude=74.50&current=temperature_2m,relative_humidity_2m,precipitation,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m'
         ),
         fetch(
-          'https://marine-api.open-meteo.com/v1/marine?latitude=13.20&longitude=74.75&current=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period'
+          'https://marine-api.open-meteo.com/v1/marine?latitude=13.85&longitude=74.50&current=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period'
         ),
       ]);
 
@@ -81,17 +81,17 @@ export const LiveDataStatus: React.FC<Props> = ({ evidence: _evidence, investiga
       const mc = marineData?.current || {};
 
       setTelemetry({
-        temp: wc.temperature_2m ?? 25.7,
-        humidity: wc.relative_humidity_2m ?? 93,
+        temp: wc.temperature_2m ?? 29.5,
+        humidity: wc.relative_humidity_2m ?? 85,
         precipitation: wc.precipitation ?? 0.0,
-        pressure: wc.surface_pressure ?? 1010.0,
-        windSpeed: wc.wind_speed_10m ?? 9.4,
-        windDirection: wc.wind_direction_10m ?? 98,
-        windGusts: wc.wind_gusts_10m ?? 18.7,
-        waveHeight: mc.wave_height ?? 0.62,
+        pressure: wc.surface_pressure ?? 1010.4,
+        windSpeed: wc.wind_speed_10m ?? 14.8,
+        windDirection: wc.wind_direction_10m ?? 208,
+        windGusts: wc.wind_gusts_10m ?? 16.2,
+        waveHeight: mc.wave_height ?? 0.72,
         wavePeriod: mc.wave_period ?? 9.5,
         waveDirection: mc.wave_direction ?? 202,
-        swellHeight: mc.swell_wave_height ?? 0.52,
+        swellHeight: mc.swell_wave_height ?? 0.56,
         swellPeriod: mc.swell_wave_period ?? 7.95,
         lastUpdated: new Date().toLocaleTimeString(),
         loading: false,
@@ -200,7 +200,7 @@ export const LiveDataStatus: React.FC<Props> = ({ evidence: _evidence, investiga
       category: 'Weather',
       status: 'live',
       provider: 'Open-Meteo Marine & ECMWF Integrated Grid',
-      summary: `13.20°N, 74.75°E • ${telemetry.windSpeed} km/h ${windDirLabel} • ${telemetry.precipitation}mm`,
+      summary: `13.85°N, 74.50°E • ${telemetry.windSpeed} km/h ${windDirLabel} • ${telemetry.precipitation}mm`,
       lastChecked: telemetry.lastUpdated,
       frequency: 'Real-time API stream',
       datum: 'ECMWF / GFS Arabian Sea High-Res Grid',
