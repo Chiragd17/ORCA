@@ -168,32 +168,32 @@ export const AgentsHub: React.FC = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Hero Header */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] border border-slate-800 p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute -right-16 -top-16 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute right-32 -bottom-20 w-64 h-64 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+      <div className="rounded-2xl bg-white border border-[#d8e4f0] p-6 sm:p-8 shadow-xs relative overflow-hidden">
+        <div className="absolute -right-16 -top-16 w-80 h-80 bg-indigo-50/70 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute right-32 -bottom-20 w-64 h-64 bg-blue-50/60 rounded-full blur-2xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold">
-              <Bot className="w-3.5 h-3.5" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold">
+              <Bot className="w-3.5 h-3.5 text-indigo-600" />
               <span>ORCA Multi-Agent Autonomous Architecture</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0a1628]">
               Specialist AI Agents Hub
             </h1>
-            <p className="text-slate-300 text-sm leading-relaxed">
+            <p className="text-[#475569] text-sm leading-relaxed">
               Autonomous scientific and spatial agents coordinating deterministically through the central
               Orchestrator to deliver verified marine, coastal, and disaster intelligence.
             </p>
           </div>
 
-          <div className="flex flex-row md:flex-col items-center md:items-end gap-3 flex-shrink-0">
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="flex flex-row md:flex-col items-center md:items-end gap-2.5 flex-shrink-0">
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 shadow-2xs">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
               <span><strong>5</strong> Autonomous Agents Active</span>
             </div>
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-800 text-xs text-emerald-300">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 shadow-2xs">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               <span><strong>4 Specialists + Master Orchestrator</strong> Live</span>
             </div>
           </div>
