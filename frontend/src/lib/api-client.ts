@@ -6,12 +6,21 @@ import {
   OceanResearchData,
 } from '../types';
 
-const CANDIDATE_BASES = [
-  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1',
-  'http://127.0.0.1:8000/api/v1',
-  'http://localhost:8000/api/v1',
-  '/api/v1',
-];
+const isLocal = typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+const CANDIDATE_BASES = isLocal
+  ? [
+      import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1',
+      'http://127.0.0.1:8000/api/v1',
+      'http://localhost:8000/api/v1',
+      '/api/v1',
+    ]
+  : [
+      import.meta.env.VITE_API_BASE_URL || 'https://orca-backend-iqax.onrender.com/api/v1',
+      'https://orca-backend-iqax.onrender.com/api/v1',
+      '/api/v1',
+    ];
 
 class ApiClient {
   private activeBase: string = CANDIDATE_BASES[0];
@@ -57,25 +66,37 @@ class ApiClient {
   }
 
   async checkHealth(): Promise<{ status: string; database: string; version: string }> {
-    const candidateUrls = [
-      this.activeBase.replace('/api/v1', '/health'),
-      'http://127.0.0.1:8000/health',
-      'http://localhost:8000/health',
-      'http://127.0.0.1:8000/api/v1/health',
-      'http://localhost:8000/api/v1/health',
-      '/health',
-    ];
+    const candidateUrls = isLocal
+      ? [
+          this.activeBase.replace('/api/v1', '/health'),
+          'http://127.0.0.1:8000/health',
+          'http://localhost:8000/health',
+          'http://127.0.0.1:8000/api/v1/health',
+          'http://localhost:8000/api/v1/health',
+          '/health',
+        ]
+      : [
+          this.activeBase.replace('/api/v1', '/health'),
+          this.activeBase.replace('/api/v1', '/api/v1/health'),
+          'https://orca-backend-iqax.onrender.com/health',
+          '/health',
+        ];
 
     for (const url of candidateUrls) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
         const resp = await fetch(url, { signal: controller.signal, cache: 'no-store' });
         clearTimeout(timeoutId);
 
         if (resp.ok) {
           const data = await resp.json();
-          if (url.includes(':8000')) {
+          if (isLocal && url.includes(':8000')) {
+            const hostMatch = url.match(/https?:\/\/[^/]+/);
+            if (hostMatch) {
+              this.activeBase = `${hostMatch[0]}/api/v1`;
+            }
+          } else if (!isLocal && url.includes('.onrender.com')) {
             const hostMatch = url.match(/https?:\/\/[^/]+/);
             if (hostMatch) {
               this.activeBase = `${hostMatch[0]}/api/v1`;

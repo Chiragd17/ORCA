@@ -1,5 +1,5 @@
 import os
-from typing import List, Union
+from typing import List, Union, Optional
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -34,7 +34,8 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = "postgresql+psycopg://orca_user:orca_password@localhost:5432/orca_db"
-    HAZARD_DATABASE_URL: str = "postgresql+psycopg://orca:orca@localhost:5432/orca_db_person2"
+    # pyrefly: ignore[unknown-name]
+    HAZARD_DATABASE_URL: Optional[str] = None
     DB_ECHO: bool = False
 
     # LLM Providers

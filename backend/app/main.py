@@ -18,6 +18,16 @@ from app.api.v1.endpoints.health import router as health_router
 async def lifespan(app: FastAPI):
     setup_logging()
     logger.info("Initializing ORCA backend services...")
+    # Auto-create tables in the connected database if they don't exist
+    try:
+        from app.db.base import Base
+        from app.db.session import engine
+        import app.models  # ensure models are loaded
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables verified/created successfully.")
+    except Exception as e:
+        logger.warning(f"Could not auto-create database tables: {e}")
     yield
     logger.info("Shutting down ORCA backend services...")
 

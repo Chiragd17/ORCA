@@ -3,7 +3,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from app.core.config import settings
 
-hazard_db_url = getattr(settings, "HAZARD_DATABASE_URL", None) or settings.DATABASE_URL
+hazard_db_url = getattr(settings, "HAZARD_DATABASE_URL", None)
+if not hazard_db_url or ("localhost" in str(hazard_db_url) and "localhost" not in str(settings.DATABASE_URL)):
+    hazard_db_url = settings.DATABASE_URL
 
 hazard_engine = create_engine(
     hazard_db_url,

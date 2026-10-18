@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Path, Query, status
 from pydantic import BaseModel, Field
 
+from app.core.logging import logger
 from app.schemas import (
     InvestigationCreateRequest,
     InvestigationCreateResponse,
@@ -131,7 +132,19 @@ async def get_orchestrator_stats():
     )
 
 
-@router.get("", response_model=List[Dict[str, Any]], tags=["Investigations"])
+class InvestigationListItem(BaseModel):
+    investigation_id: str
+    status: str
+    workspace: str
+    query: str
+    created_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    planned_agents: List[str] = Field(default_factory=list)
+    findings_count: int = 0
+    storage_tier: str = "postgres_durable"
+
+
+@router.get("", response_model=List[InvestigationListItem], tags=["Investigations"])
 async def list_investigations():
     """List all executed investigations dynamically with execution metrics."""
     results = []
