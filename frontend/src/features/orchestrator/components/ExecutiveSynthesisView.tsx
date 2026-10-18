@@ -38,9 +38,9 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
 }) => {
   if (!finalAnswer || !finalAnswer.trim()) {
     return (
-      <div className="text-center py-12 rounded-2xl bg-slate-50 border border-slate-200 text-slate-400 text-xs">
-        <Sparkles className="w-6 h-6 text-slate-300 mx-auto mb-2 animate-pulse" />
-        <p className="font-semibold text-slate-600">Executive Intelligence Synthesis in Progress</p>
+      <div className="text-center py-12 rounded-2xl bg-white border border-[#d8e4f0] text-slate-400 text-xs shadow-xs">
+        <Sparkles className="w-6 h-6 text-indigo-400 mx-auto mb-2 animate-pulse" />
+        <p className="font-semibold text-slate-700">Executive Intelligence Synthesis in Progress</p>
         <p className="text-[11px] text-slate-400 mt-0.5">
           Specialist agents are collecting findings and verifying source evidence.
         </p>
@@ -58,7 +58,7 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
         return (
-          <strong key={i} className="font-bold text-slate-900">
+          <strong key={i} className="font-bold text-[#0a1628]">
             {part.slice(2, -2)}
           </strong>
         );
@@ -189,38 +189,43 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* 1. Header Banner */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-[#0a1628] via-[#162a45] to-[#1e3a5f] text-white shadow-xs">
+      {/* 1. Header Banner - Matching ORCA White & Indigo Card Aesthetic */}
+      <div className="rounded-2xl bg-white border border-[#d8e4f0] p-4 sm:p-5 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-400/20">
-                <Sparkles className="w-4 h-4 text-indigo-300" />
-              </span>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-200">
-                Executive Synthesis
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
-                {detectedTitle || workspace || 'Marine Intelligence'}
-              </span>
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-indigo-600" />
+            </span>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm sm:text-base font-bold text-[#0a1628]">
+                  Multi-Agent Investigation Briefing
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  EXECUTIVE SYNTHESIS
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                  {detectedTitle || workspace || 'Marine Intelligence'}
+                </span>
+              </div>
+              <p className="text-xs text-[#6b8fc0]">
+                Coordinated intelligence synthesis across specialist agents with full evidentiary traceability.
+              </p>
             </div>
-            <h2 className="text-sm sm:text-base font-extrabold tracking-tight text-white">
-              Multi-Agent Investigation Briefing
-            </h2>
           </div>
 
-          <div className="flex items-center gap-2 text-[11px] text-slate-300 font-mono bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 self-start sm:self-auto">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold self-start sm:self-auto flex-shrink-0">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
             <span>Deterministic Scientific Audit</span>
           </div>
         </div>
 
         {detectedQuery && (
-          <div className="mt-3 pt-3 border-t border-white/10 flex items-start gap-2 text-xs text-slate-200 bg-white/5 p-2.5 rounded-xl">
-            <Compass className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+          <div className="pt-2 border-t border-slate-100 flex items-start gap-2.5 text-xs text-[#334155] bg-[#f8fafc] p-3 rounded-xl border border-[#e2e8f0]">
+            <Compass className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
             <div className="leading-relaxed">
-              <span className="font-semibold text-cyan-300">Target Query: </span>
-              <span>{detectedQuery}</span>
+              <span className="font-bold text-[#0a1628]">Target Query: </span>
+              <span className="text-[#334155]">{detectedQuery}</span>
             </div>
           </div>
         )}
@@ -246,15 +251,15 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
 
       {/* 2. Specialist Observations & Findings Section */}
       {parsedFindings.length > 0 ? (
-        <div className="rounded-2xl border border-[#d8e4f0] bg-white p-4 space-y-3 shadow-2xs">
+        <div className="rounded-2xl border border-[#d8e4f0] bg-white p-4 sm:p-5 space-y-3 shadow-xs">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-indigo-600" />
-              <h3 className="text-xs font-bold text-slate-900">
+              <h3 className="text-xs font-bold text-[#0a1628]">
                 1. Specialist Observations & Findings
               </h3>
             </div>
-            <span className="text-[10.5px] font-mono text-slate-500">
+            <span className="text-[10px] font-mono text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full">
               {parsedFindings.length} Claims Synthesized
             </span>
           </div>
@@ -267,7 +272,7 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
               return (
                 <div
                   key={idx}
-                  className="p-3 rounded-xl border border-slate-200 bg-[#fbfcfd] hover:border-indigo-200 hover:bg-white transition-all space-y-2"
+                  className="p-3.5 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] hover:border-[#93c5fd] hover:bg-white transition-all space-y-2 shadow-2xs"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -293,13 +298,13 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
                     </div>
 
                     {f.value && (
-                      <span className="px-2.5 py-1 rounded-lg bg-indigo-50/80 border border-indigo-100 text-indigo-900 font-extrabold text-xs font-mono flex-shrink-0">
+                      <span className="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-800 font-extrabold text-xs font-mono flex-shrink-0">
                         {f.value.replace(/\ufffd/g, '°')}
                       </span>
                     )}
                   </div>
 
-                  <p className="text-xs text-slate-700 leading-relaxed font-normal">
+                  <p className="text-xs text-[#334155] leading-relaxed font-normal">
                     {renderInlineFormatted(f.claim)}
                   </p>
                 </div>
@@ -313,14 +318,14 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Evidence Card */}
         {evidenceSection && (
-          <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-2.5 shadow-2xs">
+          <div className="p-4 rounded-2xl border border-[#d8e4f0] bg-white space-y-2.5 shadow-xs">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
               <Database className="w-4 h-4 text-blue-600" />
-              <h3 className="text-xs font-bold text-slate-900">
+              <h3 className="text-xs font-bold text-[#0a1628]">
                 2. Evidence Integrity & Provenance
               </h3>
             </div>
-            <div className="space-y-2 text-xs text-slate-700">
+            <div className="space-y-2 text-xs text-[#334155]">
               {evidenceSection.rawContent.map((line, idx) => (
                 <div key={idx} className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
@@ -333,14 +338,14 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
 
         {/* Verification Audit Card */}
         {verificationSection && (
-          <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-2.5 shadow-2xs">
+          <div className="p-4 rounded-2xl border border-[#d8e4f0] bg-white space-y-2.5 shadow-xs">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <h3 className="text-xs font-bold text-slate-900">
+              <h3 className="text-xs font-bold text-[#0a1628]">
                 3. Scientific Verification Audit
               </h3>
             </div>
-            <div className="space-y-2 text-xs text-slate-700">
+            <div className="space-y-2 text-xs text-[#334155]">
               {verificationSection.rawContent.map((line, idx) => (
                 <div key={idx} className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />
@@ -354,10 +359,10 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
 
       {/* 4. Operational Safety & Limitations Card */}
       {limitationsSection && (
-        <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs">
+        <div className="p-4 rounded-2xl border border-[#d8e4f0] bg-white space-y-3 shadow-xs">
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
             <Info className="w-4 h-4 text-amber-600" />
-            <h3 className="text-xs font-bold text-slate-900">
+            <h3 className="text-xs font-bold text-[#0a1628]">
               {limitationsSection.number}. Operational Safety & Scientific Limitations
             </h3>
           </div>
@@ -371,7 +376,7 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
                 return (
                   <div
                     key={idx}
-                    className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5 mt-2"
+                    className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5 mt-2 shadow-2xs"
                   >
                     <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                     <div className="leading-relaxed">
@@ -382,7 +387,7 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
               }
 
               return (
-                <div key={idx} className="flex items-start gap-2 text-xs text-slate-600 leading-relaxed">
+                <div key={idx} className="flex items-start gap-2 text-xs text-[#475569] leading-relaxed">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-1.5 flex-shrink-0" />
                   <span>{renderInlineFormatted(cleanLine)}</span>
                 </div>
@@ -402,11 +407,11 @@ export const ExecutiveSynthesisView: React.FC<ExecutiveSynthesisViewProps> = ({
             s !== limitationsSection
         )
         .map((sec, idx) => (
-          <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-white space-y-2 shadow-2xs">
-            <h4 className="text-xs font-bold text-slate-900">
+          <div key={idx} className="p-4 rounded-2xl border border-[#d8e4f0] bg-white space-y-2 shadow-xs">
+            <h4 className="text-xs font-bold text-[#0a1628]">
               {sec.number}. {sec.title}
             </h4>
-            <div className="space-y-1.5 text-xs text-slate-700">
+            <div className="space-y-1.5 text-xs text-[#334155]">
               {sec.rawContent.map((line, lIdx) => (
                 <p key={lIdx} className="leading-relaxed">
                   {renderInlineFormatted(line)}
