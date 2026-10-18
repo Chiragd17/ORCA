@@ -144,12 +144,12 @@ class InvestigationListItem(BaseModel):
     storage_tier: str = "postgres_durable"
 
 
-@router.get("", response_model=List[InvestigationListItem], tags=["Investigations"])
+@router.get("", response_model=List[Dict[str, Any]], tags=["Investigations"])
 async def list_investigations():
     """List all executed investigations dynamically with execution metrics."""
-    results = []
+    results: List[Dict[str, Any]] = []
 
-    # Try loading from PostgreSQL first
+    # 1. Try loading from PostgreSQL first
     try:
         db_gen = get_hazard_db()
         db = next(db_gen)
@@ -157,17 +157,25 @@ async def list_investigations():
             db_invs = db.query(Investigation).order_by(Investigation.created_at.desc()).all()
             seen_ids = set()
             for inv in db_invs:
-                seen_ids.add(inv.id)
-                cached = _INVESTIGATION_CACHE.get(inv.id)
+                inv_id = str(inv.id)
+                seen_ids.add(inv_id)
+                cached = _INVESTIGATION_CACHE.get(inv_id)
                 findings_count = len(inv.findings) if inv.findings else (len(cached.findings) if cached else 0)
+
+                c_at = getattr(inv, "created_at", None)
+                c_str = c_at.isoformat() if hasattr(c_at, "isoformat") else str(c_at or datetime.now(timezone.utc).isoformat())
+
+                comp_at = getattr(inv, "completed_at", None)
+                comp_str = comp_at.isoformat() if hasattr(comp_at, "isoformat") else (str(comp_at) if comp_at else None)
+
                 results.append({
-                    "investigation_id": inv.id,
-                    "status": inv.status,
-                    "workspace": inv.workspace,
-                    "query": inv.query,
-                    "created_at": inv.created_at or datetime.now(timezone.utc),
-                    "completed_at": inv.completed_at,
-                    "planned_agents": InvestigationPlanner.plan(inv.workspace, inv.query),
+                    "investigation_id": inv_id,
+                    "status": str(inv.status or "completed"),
+                    "workspace": str(inv.workspace or "fisherman"),
+                    "query": str(inv.query or ""),
+                    "created_at": c_str,
+                    "completed_at": comp_str,
+                    "planned_agents": InvestigationPlanner.plan(str(inv.workspace or "fisherman"), str(inv.query or "")),
                     "findings_count": findings_count,
                     "storage_tier": "postgres_durable",
                 })
@@ -175,16 +183,20 @@ async def list_investigations():
             # Prepend any fresh in-memory cached investigations not yet in DB results
             for k, v in _INVESTIGATION_CACHE.items():
                 if k not in seen_ids:
+                    c_at = getattr(v, "created_at", None)
+                    c_str = c_at.isoformat() if hasattr(c_at, "isoformat") else str(c_at or datetime.now(timezone.utc).isoformat())
+                    comp_at = getattr(v, "completed_at", None)
+                    comp_str = comp_at.isoformat() if hasattr(comp_at, "isoformat") else (str(comp_at) if comp_at else None)
                     results.insert(0, {
-                        "investigation_id": k,
+                        "investigation_id": str(k),
                         "status": str(v.status),
                         "workspace": str(v.workspace),
-                        "query": v.query,
-                        "created_at": v.created_at or datetime.now(timezone.utc),
-                        "completed_at": v.completed_at,
-                        "planned_agents": InvestigationPlanner.plan(str(v.workspace), v.query),
+                        "query": str(v.query),
+                        "created_at": c_str,
+                        "completed_at": comp_str,
+                        "planned_agents": InvestigationPlanner.plan(str(v.workspace), str(v.query)),
                         "findings_count": len(v.findings),
-                        "storage_tier": v.storage_tier,
+                        "storage_tier": str(v.storage_tier),
                     })
         finally:
             db.close()
@@ -194,16 +206,20 @@ async def list_investigations():
     # If DB has nothing, use in-memory cache
     if not results:
         for k, v in _INVESTIGATION_CACHE.items():
+            c_at = getattr(v, "created_at", None)
+            c_str = c_at.isoformat() if hasattr(c_at, "isoformat") else str(c_at or datetime.now(timezone.utc).isoformat())
+            comp_at = getattr(v, "completed_at", None)
+            comp_str = comp_at.isoformat() if hasattr(comp_at, "isoformat") else (str(comp_at) if comp_at else None)
             results.append({
-                "investigation_id": k,
+                "investigation_id": str(k),
                 "status": str(v.status),
                 "workspace": str(v.workspace),
-                "query": v.query,
-                "created_at": v.created_at or datetime.now(timezone.utc),
-                "completed_at": v.completed_at,
-                "planned_agents": InvestigationPlanner.plan(str(v.workspace), v.query),
+                "query": str(v.query),
+                "created_at": c_str,
+                "completed_at": comp_str,
+                "planned_agents": InvestigationPlanner.plan(str(v.workspace), str(v.query)),
                 "findings_count": len(v.findings),
-                "storage_tier": v.storage_tier,
+                "storage_tier": str(v.storage_tier),
             })
 
     return results
